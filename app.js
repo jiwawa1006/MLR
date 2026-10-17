@@ -4,11 +4,15 @@
   'use strict';
 
   // Global State
-  let currentDatasetId = 'startups_50';
-  let currentAlgo = 'lasso';
-  let currentK = 2;
+  let currentDatasetId = 'amse_housing';
+  let currentAlgo = 'forward';
+  let currentK = 192;
   let rmseChart = null;
   let r2Chart = null;
+  let showAllKButtons = false;
+  let showAllEquationTerms = false;
+  let showAllCalcFeatures = false;
+  let currentZoomRange = 'all'; // 'all' | 'early' | 'sweet'
 
   const ALGO_COLORS = {
     lasso: '#4f46e5',
@@ -37,22 +41,30 @@
     loadDataset(currentDatasetId);
   }
 
-  // Populate Dropdown Menu (下拉選單)
+  // Populate Dropdown Menu
   function populateDatasetDropdown() {
     const select = document.getElementById('datasetSelect');
+    if (!select) return;
     select.innerHTML = '';
 
     const datasets = window.DATASETS_DATA;
     const datasetIds = Object.keys(datasets);
 
-    // Prefer startups_50 first if present, otherwise first available
-    if (datasets['startups_50']) {
-      currentDatasetId = 'startups_50';
+    // Prefer amse_housing first if present, otherwise first available
+    if (datasets['amse_housing']) {
+      currentDatasetId = 'amse_housing';
     } else {
       currentDatasetId = datasetIds[0];
     }
 
-    datasetIds.forEach((id) => {
+    // Sort dropdown so amse_housing is the very first option
+    const sortedIds = [...datasetIds].sort((a, b) => {
+      if (a === 'amse_housing') return -1;
+      if (b === 'amse_housing') return 1;
+      return a.localeCompare(b);
+    });
+
+    sortedIds.forEach((id) => {
       const opt = document.createElement('option');
       opt.value = id;
       opt.textContent = datasets[id].name || id;
@@ -74,18 +86,53 @@
     const drawerBody = document.getElementById('plotDrawerBody');
     const drawerIcon = document.getElementById('plotDrawerIcon');
 
-    const toggleDrawer = () => {
-      const isHidden = drawerBody.style.display === 'none';
-      drawerBody.style.display = isHidden ? 'block' : 'none';
-      drawerIcon.className = isHidden ? 'fa-solid fa-chevron-up' : 'fa-solid fa-chevron-down';
-      toggleBtn.querySelector('span').textContent = isHidden ? 'Hide Figures' : 'Show Figures';
-    };
+    if (drawerToggle && drawerBody) {
+      const toggleDrawer = () => {
+        const isHidden = drawerBody.style.display === 'none';
+        drawerBody.style.display = isHidden ? 'block' : 'none';
+        if (drawerIcon) {
+          drawerIcon.className = isHidden ? 'fa-solid fa-chevron-up' : 'fa-solid fa-chevron-down';
+        }
+        if (toggleBtn) {
+          toggleBtn.querySelector('span').textContent = isHidden ? 'Hide Figures' : 'Show Figures';
+        }
+      };
 
-    drawerToggle.addEventListener('click', toggleDrawer);
-    toggleBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      toggleDrawer();
-    });
+      drawerToggle.addEventListener('click', toggleDrawer);
+      if (toggleBtn) {
+        toggleBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          toggleDrawer();
+        });
+      }
+    }
+
+    // Stepper & Slider Global Listeners
+    const slider = document.getElementById('kRangeSlider');
+    const numInput = document.getElementById('kNumberInput');
+    const stepDec = document.getElementById('kStepDec');
+    const stepInc = document.getElementById('kStepInc');
+
+    if (slider) {
+      slider.addEventListener('input', (e) => {
+        setK(parseInt(e.target.value, 10));
+      });
+    }
+    if (numInput) {
+      numInput.addEventListener('change', (e) => {
+        setK(parseInt(e.target.value, 10));
+      });
+    }
+    if (stepDec) {
+      stepDec.addEventListener('click', () => {
+        setK(currentK - 1);
+      });
+    }
+    if (stepInc) {
+      stepInc.addEventListener('click', () => {
+        setK(currentK + 1);
+      });
+    }
   }
 
   // Load / Switch Dataset
@@ -94,6 +141,9 @@
     if (!ds) return;
 
     currentDatasetId = datasetId;
+    showAllKButtons = false;
+    showAllEquationTerms = false;
+    showAllCalcFeatures = false;
 
     // Reset default algo and k to sweet spot
     const availableAlgos = Object.keys(ds.methods);
@@ -108,18 +158,27 @@
     }
 
     // Update Header & Breadcrumb
-    document.getElementById('breadcrumbDataset').textContent = ds.name;
-    document.getElementById('headerTitle').textContent = `${ds.name} MLR Explorer`;
+    const bc = document.getElementById('breadcrumbDataset');
+    if (bc) bc.textContent = ds.name;
+    const ht = document.getElementById('headerTitle');
+    if (ht) ht.textContent = `${ds.name} MLR Explorer`;
 
     // Update Hero Banner
-    document.getElementById('heroTitle').textContent = `${ds.name} - Feature Progression & Model Parsimony`;
-    document.getElementById('heroDesc').textContent = ds.description;
-    document.getElementById('heroDatasetName').textContent = ds.name;
-    document.getElementById('heroSamples').textContent = `${ds.total_samples} (${ds.train_samples} Train / ${ds.test_samples} Test)`;
-    document.getElementById('heroPredictors').textContent = `${ds.n_encoded_features} Encoded Features`;
+    const hTitle = document.getElementById('heroTitle');
+    if (hTitle) hTitle.textContent = `${ds.name} - Feature Progression & Model Parsimony`;
+    const hDesc = document.getElementById('heroDesc');
+    if (hDesc) hDesc.textContent = ds.description;
+    const hName = document.getElementById('heroDatasetName');
+    if (hName) hName.textContent = ds.name;
+    const hSamples = document.getElementById('heroSamples');
+    if (hSamples) hSamples.textContent = `${ds.total_samples} (${ds.train_samples} Train / ${ds.test_samples} Test)`;
+    const hPredictors = document.getElementById('heroPredictors');
+    if (hPredictors) hPredictors.textContent = `${ds.n_encoded_features} Encoded Features`;
 
-    const unitStr = ds.unit ? ` (${ds.unit})` : '';
-    document.getElementById('heroSweetSpot').textContent = `k=${sweet.k} via ${sweet.method.toUpperCase()} (${formatNumber(sweet.test_rmse, ds.unit)})`;
+    const hSweet = document.getElementById('heroSweetSpot');
+    if (hSweet) {
+      hSweet.textContent = `k=${sweet.k} via ${sweet.method.toUpperCase()} (${formatNumber(sweet.test_rmse, ds.unit)})`;
+    }
 
     // Render Algorithm Tabs
     renderAlgorithmTabs(ds);
@@ -130,6 +189,7 @@
 
   function renderAlgorithmTabs(ds) {
     const tabsContainer = document.getElementById('algoTabs');
+    if (!tabsContainer) return;
     tabsContainer.innerHTML = '';
 
     const methods = ds.methods;
@@ -188,47 +248,176 @@
 
   function renderKButtons(ds) {
     const kContainer = document.getElementById('kSelectorGroup');
-    kContainer.innerHTML = '';
+    const presetsContainer = document.getElementById('kPresetsContainer');
+    const slider = document.getElementById('kRangeSlider');
+    const numInput = document.getElementById('kNumberInput');
+    const maxLabel = document.getElementById('kMaxLabel');
+    const controlLabel = document.getElementById('kControlLabel');
+
+    if (kContainer) kContainer.innerHTML = '';
+    if (presetsContainer) presetsContainer.innerHTML = '';
 
     const methodData = currentAlgo === 'ALL'
       ? (ds.methods['lasso'] ? ds.methods['lasso'].data : Object.values(ds.methods)[0].data)
-      : ds.methods[currentAlgo].data;
+      : (ds.methods[currentAlgo] ? ds.methods[currentAlgo].data : Object.values(ds.methods)[0].data);
+
+    if (!methodData || methodData.length === 0) return;
 
     const sweetK = ds.sweet_spot.k || 2;
     const maxK = methodData.length;
 
-    methodData.forEach((row) => {
-      const k = row.k;
-      const btn = document.createElement('button');
-      const isSweet = k === sweetK;
-      const isOverfit = k === maxK && maxK >= 4;
+    // Constrain currentK
+    if (currentK > maxK) currentK = maxK;
+    if (currentK < 1) currentK = 1;
 
-      let extraClass = '';
-      if (isSweet) extraClass += ' sweet-spot';
-      if (isOverfit && !isSweet) extraClass += ' overfitting';
-      if (k === currentK) extraClass += ' active';
+    // Update Label & Stepper / Slider
+    if (controlLabel) {
+      controlLabel.innerHTML = `<i class="fa-solid fa-list-ol"></i> 2. Number of Selected Features (k = 1 to ${maxK})`;
+    }
+    if (maxLabel) maxLabel.textContent = `/ ${maxK}`;
 
-      btn.className = `k-btn${extraClass}`;
-      btn.dataset.k = k;
+    if (slider) {
+      slider.min = 1;
+      slider.max = maxK;
+      slider.value = currentK;
+    }
+    if (numInput) {
+      numInput.min = 1;
+      numInput.max = maxK;
+      numInput.value = currentK;
+    }
 
-      let labelExtra = '';
-      if (isSweet) {
-        labelExtra = ' ★ Optimal';
-      } else if (isOverfit) {
-        labelExtra = ' (Full Model)';
+    // Milestone Presets
+    if (presetsContainer) {
+      const presets = [];
+
+      // 1. Sweet Spot
+      presets.push({ label: `<i class="fa-solid fa-star"></i> Sweet Spot (k=${sweetK})`, k: sweetK, isSweet: true });
+
+      // 2. Minimal model (k=1)
+      if (sweetK !== 1) {
+        presets.push({ label: 'k=1 (Min)', k: 1 });
       }
 
-      btn.innerHTML = `<span>k = ${k}${labelExtra}</span>`;
-
-      btn.addEventListener('click', () => {
-        document.querySelectorAll('#kSelectorGroup .k-btn').forEach((b) => b.classList.remove('active'));
-        btn.classList.add('active');
-        currentK = k;
-        updateKSelection();
+      // 3. Intermediate milestones
+      const milestones = [2, 3, 5, 10, 20, 50, 100];
+      milestones.forEach((m) => {
+        if (m < maxK && m !== sweetK && m !== 1 && !presets.some(p => p.k === m)) {
+          if (maxK > 16 && (m === 5 || m === 10 || (maxK > 30 && m === 20) || (maxK > 100 && m === 50))) {
+            presets.push({ label: `k=${m}`, k: m });
+          } else if (maxK <= 16) {
+            presets.push({ label: `k=${m}`, k: m });
+          }
+        }
       });
 
-      kContainer.appendChild(btn);
+      // 4. Full model (k=maxK)
+      if (maxK > 1 && !presets.some(p => p.k === maxK)) {
+        presets.push({ label: `k=${maxK} (Full)`, k: maxK });
+      }
+
+      presets.sort((a, b) => a.k - b.k);
+
+      presets.forEach((p) => {
+        const chip = document.createElement('button');
+        let cls = 'k-preset-chip';
+        if (p.isSweet) cls += ' sweet';
+        if (p.k === currentK) cls += ' active';
+        chip.className = cls;
+        chip.innerHTML = p.label;
+        chip.addEventListener('click', () => {
+          setK(p.k);
+        });
+        presetsContainer.appendChild(chip);
+      });
+    }
+
+    // Individual K Buttons
+    if (kContainer) {
+      if (maxK <= 16 || showAllKButtons) {
+        methodData.forEach((row) => {
+          const k = row.k;
+          const btn = document.createElement('button');
+          const isSweet = k === sweetK;
+          const isOverfit = k === maxK && maxK >= 4;
+
+          let extraClass = '';
+          if (isSweet) extraClass += ' sweet-spot';
+          if (isOverfit && !isSweet) extraClass += ' overfitting';
+          if (k === currentK) extraClass += ' active';
+
+          btn.className = `k-btn${extraClass}`;
+          btn.dataset.k = k;
+
+          let labelExtra = '';
+          if (isSweet) {
+            labelExtra = ' ★';
+          }
+
+          btn.innerHTML = `<span>k = ${k}${labelExtra}</span>`;
+          btn.addEventListener('click', () => {
+            setK(k);
+          });
+          kContainer.appendChild(btn);
+        });
+
+        if (maxK > 16) {
+          const toggleBtn = document.createElement('button');
+          toggleBtn.className = 'btn btn-secondary btn-sm';
+          toggleBtn.innerHTML = '<i class="fa-solid fa-chevron-up"></i> Collapse Individual Buttons';
+          toggleBtn.addEventListener('click', () => {
+            showAllKButtons = false;
+            renderKButtons(ds);
+          });
+          kContainer.appendChild(toggleBtn);
+        }
+      } else {
+        const toggleBtn = document.createElement('button');
+        toggleBtn.className = 'btn btn-secondary btn-sm';
+        toggleBtn.innerHTML = `<i class="fa-solid fa-list-ol"></i> Show All ${maxK} Individual Buttons`;
+        toggleBtn.addEventListener('click', () => {
+          showAllKButtons = true;
+          renderKButtons(ds);
+        });
+        kContainer.appendChild(toggleBtn);
+      }
+    }
+  }
+
+  function setK(newK) {
+    const ds = window.DATASETS_DATA[currentDatasetId];
+    if (!ds) return;
+
+    const methodData = currentAlgo === 'ALL'
+      ? (ds.methods['lasso'] ? ds.methods['lasso'].data : Object.values(ds.methods)[0].data)
+      : (ds.methods[currentAlgo] ? ds.methods[currentAlgo].data : Object.values(ds.methods)[0].data);
+    const maxK = methodData ? methodData.length : 5;
+
+    let k = parseInt(newK, 10);
+    if (isNaN(k)) k = 1;
+    if (k < 1) k = 1;
+    if (k > maxK) k = maxK;
+
+    currentK = k;
+
+    // Update Slider & Number Input
+    const slider = document.getElementById('kRangeSlider');
+    const numInput = document.getElementById('kNumberInput');
+    if (slider) slider.value = currentK;
+    if (numInput) numInput.value = currentK;
+
+    // Update preset chips
+    document.querySelectorAll('#kPresetsContainer .k-preset-chip').forEach((c) => {
+      const isMatch = c.textContent.includes(`k=${currentK}`);
+      c.classList.toggle('active', isMatch);
     });
+
+    // Update buttons
+    document.querySelectorAll('#kSelectorGroup .k-btn').forEach((b) => {
+      b.classList.toggle('active', parseInt(b.dataset.k, 10) === currentK);
+    });
+
+    updateKSelection();
   }
 
   function updateKSelection() {
@@ -321,6 +510,60 @@
     }
   }
 
+  // Vertical Guide Lines Plugin for Chart.js
+  const verticalGuidePlugin = {
+    id: 'verticalGuidePlugin',
+    afterDatasetsDraw(chart) {
+      const { ctx, chartArea, scales: { x } } = chart;
+      if (!x || !chartArea || !chart.config.options.customGuides) return;
+
+      const { sweetK, currentK, displayData } = chart.config.options.customGuides;
+      const { top, bottom } = chartArea;
+
+      // 1. Draw Sweet Spot Guide (Emerald dashed)
+      const sweetIdx = displayData.findIndex((d) => d.k === sweetK);
+      if (sweetIdx !== -1) {
+        const xPos = x.getPixelForTick(sweetIdx);
+        if (xPos >= chartArea.left && xPos <= chartArea.right) {
+          ctx.save();
+          ctx.setLineDash([4, 4]);
+          ctx.lineWidth = 1.8;
+          ctx.strokeStyle = 'rgba(16, 185, 129, 0.7)'; // Emerald
+          ctx.beginPath();
+          ctx.moveTo(xPos, top);
+          ctx.lineTo(xPos, bottom);
+          ctx.stroke();
+
+          ctx.fillStyle = '#059669';
+          ctx.font = 'bold 10px Inter, sans-serif';
+          ctx.fillText(`★ k=${sweetK}`, xPos + 4, top + 14);
+          ctx.restore();
+        }
+      }
+
+      // 2. Draw Active K Guide (Rose dashed)
+      const activeIdx = displayData.findIndex((d) => d.k === currentK);
+      if (activeIdx !== -1 && activeIdx !== sweetIdx) {
+        const xPos = x.getPixelForTick(activeIdx);
+        if (xPos >= chartArea.left && xPos <= chartArea.right) {
+          ctx.save();
+          ctx.setLineDash([3, 3]);
+          ctx.lineWidth = 1.8;
+          ctx.strokeStyle = 'rgba(244, 63, 94, 0.8)'; // Rose
+          ctx.beginPath();
+          ctx.moveTo(xPos, top);
+          ctx.lineTo(xPos, bottom);
+          ctx.stroke();
+
+          ctx.fillStyle = '#e11d48';
+          ctx.font = 'bold 10px Inter, sans-serif';
+          ctx.fillText(`● k=${currentK}`, xPos + 4, bottom - 6);
+          ctx.restore();
+        }
+      }
+    },
+  };
+
   // Render Chart.js Visualizations
   function renderCharts(ds) {
     const ctxRMSE = document.getElementById('rmseChart').getContext('2d');
@@ -330,22 +573,191 @@
     if (r2Chart) r2Chart.destroy();
 
     const isCompareAll = currentAlgo === 'ALL';
-    const ks = [1, 2, 3, 4, 5];
+    const methodObj = isCompareAll
+      ? (ds.methods['lasso'] || Object.values(ds.methods)[0])
+      : ds.methods[currentAlgo];
+    const fullMethodData = methodObj ? methodObj.data : [];
+    const totalK = fullMethodData.length;
+    const sweetK = ds.sweet_spot.k || 2;
+    const isDense = totalK > 20;
 
+    // Badges
     document.getElementById('rmseChartBadge').textContent = isCompareAll ? 'Comparing 7 Methods' : ds.methods[currentAlgo].name;
     document.getElementById('r2ChartBadge').textContent = isCompareAll ? 'Comparing 7 Methods' : ds.methods[currentAlgo].name;
 
+    // View Range Toolbar setup
+    const toolbarRow = document.getElementById('chartToolbarRow');
+    const zoomMaxKEl = document.getElementById('zoomMaxK');
+    const zoomSweetKEl = document.getElementById('zoomSweetK');
+
+    if (!isCompareAll && totalK > 25) {
+      if (toolbarRow) toolbarRow.style.display = 'flex';
+      if (zoomMaxKEl) zoomMaxKEl.textContent = totalK;
+      if (zoomSweetKEl) zoomSweetKEl.textContent = sweetK;
+
+      document.querySelectorAll('#chartZoomPills .zoom-pill').forEach((btn) => {
+        btn.classList.toggle('active', btn.dataset.range === currentZoomRange);
+        if (!btn._hasZoomListener) {
+          btn._hasZoomListener = true;
+          btn.addEventListener('click', () => {
+            currentZoomRange = btn.dataset.range;
+            document.querySelectorAll('#chartZoomPills .zoom-pill').forEach((b) => b.classList.toggle('active', b.dataset.range === currentZoomRange));
+            renderCharts(ds);
+          });
+        }
+      });
+    } else {
+      if (toolbarRow) toolbarRow.style.display = 'none';
+      currentZoomRange = 'all';
+    }
+
+    // Apply Focus Range Slicing
+    let displayData = fullMethodData;
+    if (!isCompareAll && currentZoomRange === 'early') {
+      const cutoff = Math.min(totalK, 40);
+      displayData = fullMethodData.slice(0, cutoff);
+    } else if (!isCompareAll && currentZoomRange === 'sweet') {
+      const minK = Math.max(1, sweetK - 25);
+      const maxK = Math.min(totalK, sweetK + 25);
+      displayData = fullMethodData.filter((d) => d.k >= minK && d.k <= maxK);
+    }
+
+    // Stat Strips update
+    const sweetRow = fullMethodData.find((d) => d.k === sweetK) || fullMethodData[0];
+    const activeRow = fullMethodData.find((d) => d.k === currentK) || fullMethodData[0];
+
+    const rmseSweetText = document.getElementById('rmseSweetText');
+    if (rmseSweetText && sweetRow) rmseSweetText.textContent = `k=${sweetK} (${formatNumber(sweetRow.test_rmse, ds.unit)})`;
+    const rmseActiveText = document.getElementById('rmseActiveText');
+    if (rmseActiveText && activeRow) rmseActiveText.textContent = `k=${activeRow.k} (${formatNumber(activeRow.test_rmse, ds.unit)})`;
+
+    const r2SweetText = document.getElementById('r2SweetText');
+    if (r2SweetText && sweetRow) r2SweetText.textContent = `k=${sweetK} (${sweetRow.test_r2.toFixed(4)})`;
+    const r2ActiveText = document.getElementById('r2ActiveText');
+    if (r2ActiveText && activeRow) r2ActiveText.textContent = `k=${activeRow.k} (${activeRow.test_r2.toFixed(4)})`;
+
     if (!isCompareAll) {
-      const methodData = ds.methods[currentAlgo].data;
-      const trainRMSE = methodData.map((d) => d.train_rmse);
-      const testRMSE = methodData.map((d) => d.test_rmse);
-      const trainR2 = methodData.map((d) => d.train_r2);
-      const testR2 = methodData.map((d) => d.test_r2);
-      const labels = methodData.map((d) => `k=${d.k}`);
+      const trainRMSE = displayData.map((d) => d.train_rmse);
+      const testRMSE = displayData.map((d) => d.test_rmse);
+      const trainR2 = displayData.map((d) => d.train_r2);
+      const testR2 = displayData.map((d) => d.test_r2);
+      const labels = displayData.map((d) => `k=${d.k}`);
+
+      // Point styling: smooth continuous line with NO cluttered dots on normal steps when dense
+      const trainRadii = displayData.map(() => (isDense ? 0 : 3.5));
+      const testRadii = displayData.map((d) => {
+        if (d.k === currentK) return 8; // vibrant prominent selected marker
+        if (d.k === sweetK) return 7; // optimal sweet spot star
+        return isDense ? 0 : 4;
+      });
+
+      const testPointStyles = displayData.map((d) => {
+        if (d.k === sweetK && d.k !== currentK) return 'star';
+        return 'circle';
+      });
+
+      const testPointColors = displayData.map((d) => {
+        if (d.k === currentK) return '#f43f5e'; // vibrant Rose
+        if (d.k === sweetK) return '#10b981'; // Emerald
+        return '#4f46e5';
+      });
+
+      const testBorderColors = displayData.map((d) => {
+        if (d.k === currentK || d.k === sweetK) return '#ffffff';
+        return '#4f46e5';
+      });
+
+      const testBorderWidths = displayData.map((d) => {
+        if (d.k === currentK || d.k === sweetK) return 2.5;
+        return 1;
+      });
+
+      // Chart Options
+      const chartOpts = (yTitle, unit) => ({
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: { duration: 250 },
+        customGuides: { sweetK, currentK, displayData },
+        interaction: {
+          mode: 'index',
+          intersect: false,
+        },
+        onClick: (event, elements) => {
+          if (elements && elements.length > 0) {
+            const clickedIdx = elements[0].index;
+            if (displayData[clickedIdx]) {
+              setK(displayData[clickedIdx].k);
+            }
+          }
+        },
+        plugins: {
+          legend: {
+            position: 'top',
+            labels: {
+              boxWidth: 14,
+              font: { family: "'Inter', sans-serif", size: 11.5, weight: '600' },
+            },
+          },
+          tooltip: {
+            backgroundColor: 'rgba(15, 23, 42, 0.92)',
+            titleFont: { family: "'Outfit', sans-serif", size: 13, weight: '700' },
+            bodyFont: { family: "'Fira Code', monospace", size: 12 },
+            padding: 10,
+            cornerRadius: 8,
+            callbacks: {
+              title: function (items) {
+                if (!items.length) return '';
+                const idx = items[0].dataIndex;
+                const item = displayData[idx];
+                const sweetBadge = item.k === sweetK ? ' ★ Optimal Sweet Spot' : '';
+                return `k = ${item.k} Features${sweetBadge}`;
+              },
+              label: function (context) {
+                const val = context.raw;
+                return ` ${context.dataset.label}: ${typeof val === 'number' ? val.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 }) : val} ${unit}`;
+              },
+            },
+          },
+        },
+        scales: {
+          x: {
+            title: {
+              display: true,
+              text: 'Number of Selected Features (k)',
+              font: { family: "'Outfit', sans-serif", size: 12, weight: '600' },
+              color: '#64748b',
+              padding: { top: 6 },
+            },
+            grid: { color: 'rgba(226, 232, 240, 0.5)' },
+            ticks: {
+              font: { family: "'Inter', sans-serif", size: 11, weight: '500' },
+              color: '#64748b',
+              autoSkip: true,
+              maxTicksLimit: isDense ? 12 : 20,
+              maxRotation: 0,
+              minRotation: 0,
+            },
+          },
+          y: {
+            title: {
+              display: true,
+              text: yTitle,
+              font: { family: "'Outfit', sans-serif", size: 12, weight: '600' },
+              color: '#64748b',
+            },
+            grid: { color: 'rgba(226, 232, 240, 0.6)' },
+            ticks: {
+              font: { family: "'Inter', sans-serif", size: 11 },
+              color: '#64748b',
+            },
+          },
+        },
+      });
 
       // RMSE Chart
       rmseChart = new Chart(ctxRMSE, {
         type: 'line',
+        plugins: [verticalGuidePlugin],
         data: {
           labels: labels,
           datasets: [
@@ -353,30 +765,39 @@
               label: 'Train RMSE',
               data: trainRMSE,
               borderColor: '#94a3b8',
-              backgroundColor: 'rgba(148, 163, 184, 0.1)',
+              backgroundColor: 'rgba(148, 163, 184, 0.08)',
               borderDash: [5, 5],
-              pointRadius: 4,
-              tension: 0.2,
+              borderWidth: 1.8,
+              pointRadius: trainRadii,
+              pointHoverRadius: 6,
+              hitRadius: 8,
+              tension: 0.15,
             },
             {
               label: 'Test RMSE',
               data: testRMSE,
               borderColor: '#4f46e5',
-              backgroundColor: 'rgba(79, 70, 229, 0.1)',
-              pointRadius: 6,
-              pointBackgroundColor: labels.map((_, i) => (methodData[i].k === currentK ? '#f43f5e' : '#4f46e5')),
-              pointBorderColor: '#fff',
-              pointBorderWidth: 2,
-              tension: 0.2,
+              backgroundColor: 'rgba(79, 70, 229, 0.08)',
+              borderWidth: 2.2,
+              pointRadius: testRadii,
+              pointStyle: testPointStyles,
+              pointBackgroundColor: testPointColors,
+              pointBorderColor: testBorderColors,
+              pointBorderWidth: testBorderWidths,
+              pointHoverRadius: 8,
+              hitRadius: 10,
+              tension: 0.15,
+              fill: true,
             },
           ],
         },
-        options: getChartOptions('RMSE', ds.unit),
+        options: chartOpts('RMSE', ds.unit),
       });
 
       // R2 Chart
       r2Chart = new Chart(ctxR2, {
         type: 'line',
+        plugins: [verticalGuidePlugin],
         data: {
           labels: labels,
           datasets: [
@@ -384,28 +805,40 @@
               label: 'Train R²',
               data: trainR2,
               borderColor: '#94a3b8',
-              backgroundColor: 'rgba(148, 163, 184, 0.1)',
+              backgroundColor: 'rgba(148, 163, 184, 0.08)',
               borderDash: [5, 5],
-              pointRadius: 4,
-              tension: 0.2,
+              borderWidth: 1.8,
+              pointRadius: trainRadii,
+              pointHoverRadius: 6,
+              hitRadius: 8,
+              tension: 0.15,
             },
             {
               label: 'Test R²',
               data: testR2,
               borderColor: '#10b981',
-              backgroundColor: 'rgba(16, 185, 129, 0.1)',
-              pointRadius: 6,
-              pointBackgroundColor: labels.map((_, i) => (methodData[i].k === currentK ? '#f43f5e' : '#10b981')),
-              pointBorderColor: '#fff',
-              pointBorderWidth: 2,
-              tension: 0.2,
+              backgroundColor: 'rgba(16, 185, 129, 0.08)',
+              borderWidth: 2.2,
+              pointRadius: testRadii,
+              pointStyle: testPointStyles,
+              pointBackgroundColor: testPointColors,
+              pointBorderColor: testBorderColors,
+              pointBorderWidth: testBorderWidths,
+              pointHoverRadius: 8,
+              hitRadius: 10,
+              tension: 0.15,
+              fill: true,
             },
           ],
         },
-        options: getChartOptions('R² Score', ''),
+        options: chartOpts('R² Score', ''),
       });
     } else {
       // Compare All 7 Methods Overlay
+      const maxPts = Math.max(...Object.values(ds.methods).map((m) => m.data.length));
+      const compLabels = Array.from({ length: maxPts }, (_, i) => `k=${i + 1}`);
+      const compDense = maxPts > 20;
+
       const rmseDatasets = [];
       const r2Datasets = [];
 
@@ -417,80 +850,116 @@
           data: m.data.map((d) => d.test_rmse),
           borderColor: color,
           backgroundColor: 'transparent',
-          pointRadius: 4,
-          tension: 0.2,
+          pointRadius: compDense ? 0 : 3,
+          pointHoverRadius: 6,
+          hitRadius: 8,
+          borderWidth: 2,
+          tension: 0.15,
         });
         r2Datasets.push({
           label: m.name,
           data: m.data.map((d) => d.test_r2),
           borderColor: color,
           backgroundColor: 'transparent',
-          pointRadius: 4,
-          tension: 0.2,
+          pointRadius: compDense ? 0 : 3,
+          pointHoverRadius: 6,
+          hitRadius: 8,
+          borderWidth: 2,
+          tension: 0.15,
         });
+      });
+
+      const compOpts = (yTitle, unit) => ({
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: { duration: 250 },
+        interaction: {
+          mode: 'index',
+          intersect: false,
+        },
+        onClick: (event, elements) => {
+          if (elements && elements.length > 0) {
+            setK(elements[0].index + 1);
+          }
+        },
+        plugins: {
+          legend: {
+            position: 'top',
+            labels: {
+              boxWidth: 14,
+              font: { family: "'Inter', sans-serif", size: 11, weight: '600' },
+            },
+          },
+          tooltip: {
+            backgroundColor: 'rgba(15, 23, 42, 0.92)',
+            titleFont: { family: "'Outfit', sans-serif", size: 13, weight: '700' },
+            bodyFont: { family: "'Fira Code', monospace", size: 12 },
+            padding: 10,
+            cornerRadius: 8,
+            callbacks: {
+              title: function (items) {
+                if (!items.length) return '';
+                return `k = ${items[0].dataIndex + 1} Features`;
+              },
+              label: function (context) {
+                const val = context.raw;
+                return ` ${context.dataset.label}: ${typeof val === 'number' ? val.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 }) : val} ${unit}`;
+              },
+            },
+          },
+        },
+        scales: {
+          x: {
+            title: {
+              display: true,
+              text: 'Number of Features (k)',
+              font: { family: "'Outfit', sans-serif", size: 12, weight: '600' },
+              color: '#64748b',
+              padding: { top: 6 },
+            },
+            grid: { color: 'rgba(226, 232, 240, 0.5)' },
+            ticks: {
+              font: { family: "'Inter', sans-serif", size: 11, weight: '500' },
+              color: '#64748b',
+              autoSkip: true,
+              maxTicksLimit: compDense ? 12 : 20,
+              maxRotation: 0,
+            },
+          },
+          y: {
+            title: {
+              display: true,
+              text: yTitle,
+              font: { family: "'Outfit', sans-serif", size: 12, weight: '600' },
+              color: '#64748b',
+            },
+            grid: { color: 'rgba(226, 232, 240, 0.6)' },
+            ticks: {
+              font: { family: "'Inter', sans-serif", size: 11 },
+              color: '#64748b',
+            },
+          },
+        },
       });
 
       rmseChart = new Chart(ctxRMSE, {
         type: 'line',
         data: {
-          labels: ks.map((k) => `k=${k}`),
+          labels: compLabels,
           datasets: rmseDatasets,
         },
-        options: getChartOptions('Test RMSE (Comparison)', ds.unit),
+        options: compOpts('Test RMSE (Comparison)', ds.unit),
       });
 
       r2Chart = new Chart(ctxR2, {
         type: 'line',
         data: {
-          labels: ks.map((k) => `k=${k}`),
+          labels: compLabels,
           datasets: r2Datasets,
         },
-        options: getChartOptions('Test R² (Comparison)', ''),
+        options: compOpts('Test R² (Comparison)', ''),
       });
     }
-  }
-
-  function getChartOptions(yTitle, unit) {
-    return {
-      responsive: true,
-      maintainAspectRatio: false,
-      interaction: {
-        mode: 'index',
-        intersect: false,
-      },
-      plugins: {
-        legend: {
-          position: 'top',
-          labels: {
-            boxWidth: 12,
-            font: { family: "'Inter', sans-serif", size: 11, weight: '600' },
-          },
-        },
-        tooltip: {
-          callbacks: {
-            label: function (context) {
-              const val = context.raw;
-              return `${context.dataset.label}: ${typeof val === 'number' ? val.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 }) : val} ${unit}`;
-            },
-          },
-        },
-      },
-      scales: {
-        x: {
-          grid: { display: false },
-          ticks: { font: { family: "'Inter', sans-serif", size: 11, weight: '600' } },
-        },
-        y: {
-          title: {
-            display: true,
-            text: yTitle,
-            font: { family: "'Outfit', sans-serif", size: 12, weight: '600' },
-          },
-          grid: { color: 'rgba(226, 232, 240, 0.8)' },
-          ticks: { font: { family: "'Inter', sans-serif", size: 11 } },
-        },
-      },
-    };
   }
 
   // Render Fitted Mathematical Equation Box
@@ -502,15 +971,47 @@
     const intercept = coefs.find((c) => c.feature.includes('Intercept')) || coefs[0];
     const slopeCoefs = coefs.filter((c) => !c.feature.includes('Intercept'));
 
+    const expandRow = document.getElementById('equationExpandRow');
+    const toggleBtn = document.getElementById('equationToggleBtn');
+    const toggleText = document.getElementById('equationToggleText');
+
+    let termsToRender = slopeCoefs;
+    const isTruncated = slopeCoefs.length > 8 && !showAllEquationTerms;
+
+    if (isTruncated) {
+      termsToRender = slopeCoefs.slice(0, 8);
+      if (expandRow) expandRow.style.display = 'block';
+      if (toggleText) toggleText.textContent = `Show all ${slopeCoefs.length} terms (+${slopeCoefs.length - 8} more)`;
+    } else {
+      if (slopeCoefs.length > 8) {
+        if (expandRow) expandRow.style.display = 'block';
+        if (toggleText) toggleText.textContent = 'Collapse to top 8 terms';
+      } else {
+        if (expandRow) expandRow.style.display = 'none';
+      }
+    }
+
     let formulaHtml = `<span class="equation-var">${ds.target}</span> = <span class="equation-coef">${intercept.coef.toFixed(4)}</span>`;
 
-    slopeCoefs.forEach((c) => {
+    termsToRender.forEach((c) => {
       const sign = c.coef >= 0 ? '+' : '-';
       const absVal = Math.abs(c.coef).toFixed(4);
       formulaHtml += ` ${sign} <span class="equation-coef">${absVal}</span> × (<span class="equation-var">${c.feature}</span>)`;
     });
 
+    if (isTruncated) {
+      formulaHtml += ` <span style="color: #a5b4fc; font-style: italic;">+ ... (${slopeCoefs.length - 8} more predictors)</span>`;
+    }
+
     document.getElementById('equationBox').innerHTML = formulaHtml;
+
+    if (toggleBtn && !toggleBtn._hasListener) {
+      toggleBtn._hasListener = true;
+      toggleBtn.addEventListener('click', () => {
+        showAllEquationTerms = !showAllEquationTerms;
+        renderEquation(ds);
+      });
+    }
   }
 
   // Render Coefficients & Statistical Significance Table
@@ -557,13 +1058,32 @@
   function renderLiveCalculator(ds) {
     const row = getActiveRowData(ds);
     const container = document.getElementById('calculatorInputsContainer');
+    const expandRow = document.getElementById('calcExpandRow');
+    const toggleBtn = document.getElementById('calcToggleAllBtn');
+    const toggleText = document.getElementById('calcToggleText');
+    const resetBtn = document.getElementById('resetCalcBtn');
+
     container.innerHTML = '';
 
     document.getElementById('predTargetLabel').textContent = `${ds.target} (${ds.unit || ''})`;
 
     if (!row || !row.features) return;
 
-    row.features.forEach((feat) => {
+    const isTruncated = row.features.length > 8 && !showAllCalcFeatures;
+
+    if (isTruncated) {
+      if (expandRow) expandRow.style.display = 'block';
+      if (toggleText) toggleText.textContent = `Show all ${row.features.length} features (+${row.features.length - 8} more)`;
+    } else {
+      if (row.features.length > 8) {
+        if (expandRow) expandRow.style.display = 'block';
+        if (toggleText) toggleText.textContent = 'Collapse to top 8 features';
+      } else {
+        if (expandRow) expandRow.style.display = 'none';
+      }
+    }
+
+    row.features.forEach((feat, idx) => {
       const stats = (ds.feature_stats && ds.feature_stats[feat]) || {
         min: 0,
         max: 100,
@@ -571,16 +1091,19 @@
         default: 50,
       };
 
+      const isHidden = isTruncated && idx >= 8;
       const group = document.createElement('div');
       group.className = 'input-group';
+      if (isHidden) group.style.display = 'none';
 
-      const inputId = `calc_num_${feat.replace(/[^a-zA-Z0-9]/g, '_')}`;
-      const sliderId = `calc_range_${feat.replace(/[^a-zA-Z0-9]/g, '_')}`;
-      const labelId = `calc_val_${feat.replace(/[^a-zA-Z0-9]/g, '_')}`;
+      const safeId = feat.replace(/[^a-zA-Z0-9]/g, '_');
+      const inputId = `calc_num_${safeId}`;
+      const sliderId = `calc_range_${safeId}`;
+      const labelId = `calc_val_${safeId}`;
 
       group.innerHTML = `
         <div class="input-label-row">
-          <span>${feat}</span>
+          <span title="${feat}" style="max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${feat}</span>
           <span id="${labelId}" style="color: var(--primary); font-family: var(--font-mono); font-size: 12px;">${stats.default.toFixed(2)}</span>
         </div>
         <input type="number" id="${inputId}" class="input-field" value="${stats.default}" min="${stats.min}" max="${stats.max}" step="${stats.step}">
@@ -605,6 +1128,32 @@
         calculatePrediction(ds, row);
       });
     });
+
+    if (toggleBtn && !toggleBtn._hasListener) {
+      toggleBtn._hasListener = true;
+      toggleBtn.addEventListener('click', () => {
+        showAllCalcFeatures = !showAllCalcFeatures;
+        renderLiveCalculator(ds);
+      });
+    }
+
+    if (resetBtn && !resetBtn._hasListener) {
+      resetBtn._hasListener = true;
+      resetBtn.addEventListener('click', () => {
+        row.features.forEach((feat) => {
+          const stats = (ds.feature_stats && ds.feature_stats[feat]);
+          if (!stats) return;
+          const safeId = feat.replace(/[^a-zA-Z0-9]/g, '_');
+          const numInput = document.getElementById(`calc_num_${safeId}`);
+          const rangeInput = document.getElementById(`calc_range_${safeId}`);
+          const valLabel = document.getElementById(`calc_val_${safeId}`);
+          if (numInput) numInput.value = stats.default;
+          if (rangeInput) rangeInput.value = stats.default;
+          if (valLabel) valLabel.textContent = Number(stats.default).toFixed(2);
+        });
+        calculatePrediction(ds, row);
+      });
+    }
 
     calculatePrediction(ds, row);
   }
@@ -683,11 +1232,11 @@
     const imgR2 = document.getElementById('staticPlotR2');
     const linkR2 = document.getElementById('staticPlotR2Link');
 
-    imgRMSE.src = rmsePath;
-    linkRMSE.href = rmsePath;
+    if (imgRMSE) imgRMSE.src = rmsePath;
+    if (linkRMSE) linkRMSE.href = rmsePath;
 
-    imgR2.src = r2Path;
-    linkR2.href = r2Path;
+    if (imgR2) imgR2.src = r2Path;
+    if (linkR2) linkR2.href = r2Path;
   }
 
   function formatNumber(num, unit) {

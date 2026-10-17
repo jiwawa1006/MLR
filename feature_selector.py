@@ -275,8 +275,6 @@ def feature_count_experiment(X_train, X_test, y_train, y_test, method, max_featu
 
     results = []
 
-    print(f"[{method}] Testing {max_features}/{n_features} encoded features...")
-
     for k in range(1, max_features + 1):
 
         selected_features = ranking[:k]
@@ -347,8 +345,6 @@ def lasso_experiment(X_train, X_test, y_train, y_test, max_features=None, alpha=
 
     for k in range(1, max_features + 1):
 
-        print(f"[lasso] Testing {k}/{max_features} encoded features...")
-
         selected_features = ranking[:k]
         selected_idx = [feature_names.index(feature) for feature in selected_features]
 
@@ -412,8 +408,6 @@ def elastic_net_experiment(X_train, X_test, y_train, y_test, max_features=None, 
     results = []
 
     for k in range(1, max_features + 1):
-
-        print(f"[elastic_net] Testing {k}/{max_features} encoded features...")
 
         selected_features = ranking[:k]
         selected_idx = [feature_names.index(feature) for feature in selected_features]

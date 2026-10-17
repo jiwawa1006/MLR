@@ -22,13 +22,17 @@ TEST_SIZE = 0.2
 RANDOM_STATE = 42
 CV = 5
 
-MAX_FEATURES = 5
+MAX_FEATURES = None
 
 METHODS = ["variance_threshold", "mutual_information", "forward", "backward", "rfe", "lasso", "elastic_net"]
 
 TARGET_COLUMNS = {
-    "startups_50": "Profit",
     "boston_housing": "MEDV",
+    "cancer_deathrate": "TARGET_deathRate",
+    "cover_type": "Cover_Type",
+    "startups_50": "Profit",
+    "student_performance": "G3",
+    "amse_housing": "SalePrice",
 }
 
 # Utility functions
@@ -78,7 +82,7 @@ def print_selected_features(feature_string):
 
     return features
 
-def get_best_result(results):
+def get_best_rmse_result(results):
     """
     Find the row with the lowest test RMSE.
     """
@@ -102,47 +106,74 @@ def get_best_r2_result(results):
 # Plotting
 def plot_rmse(results, method, output_path):
     """
-    Plot Train/Test RMSE against number of features.
+    Plot Train/Test RMSE against number of features with adaptive clean ticks.
     """
+    import matplotlib.ticker as ticker
 
-    plt.figure(figsize=(9, 6))
-    plt.plot(results["n_features"], results["train_rmse"], marker=".", label="Train RMSE")
-    plt.plot(results["n_features"], results["test_rmse"], marker=".", label="Test RMSE")
+    plt.figure(figsize=(9, 5.5))
+    n_pts = len(results["n_features"])
+    marker_style = "." if n_pts <= 20 else None
 
-    best = get_best_result(results)
+    plt.plot(results["n_features"], results["train_rmse"], marker=marker_style, linewidth=2, linestyle="--", color="#64748b", label="Train RMSE")
+    plt.plot(results["n_features"], results["test_rmse"], marker=marker_style, linewidth=2.2, color="#4f46e5", label="Test RMSE")
+
+    best = get_best_rmse_result(results)
 
     if best is not None:
-        plt.scatter(best["n_features"], best["test_rmse"], c="red", s=100, marker="*", zorder=5, label=f"Best Test RMSE (k={int(best['n_features'])})")
+        best_k = int(best["n_features"])
+        best_val = best["test_rmse"]
+        plt.axvline(best_k, color="#dc2626", linestyle=":", alpha=0.6, linewidth=1.5)
+        plt.scatter(best_k, best_val, c="#dc2626", s=140, marker="*", zorder=5, label=f"Best Test RMSE (k={best_k}, RMSE={best_val:,.2f})")
 
-    plt.xlabel("Number of Features (k)")
-    plt.ylabel("RMSE")
-    plt.title(f"{method.replace('_', ' ').title()} - RMSE")
-    plt.xticks(results["n_features"])
-    plt.grid(True, alpha=0.3)
-    plt.legend()
+    plt.xlabel("Number of Features (k)", fontweight="bold")
+    plt.ylabel("RMSE", fontweight="bold")
+    plt.title(f"{method.replace('_', ' ').title()} - RMSE vs Feature Count", fontsize=13, fontweight="bold")
+
+    if n_pts <= 20:
+        plt.xticks(results["n_features"])
+    else:
+        ax = plt.gca()
+        ax.xaxis.set_major_locator(ticker.MaxNLocator(12, integer=True))
+
+    plt.grid(True, alpha=0.25, linestyle="--")
+    plt.legend(framealpha=0.9)
     plt.tight_layout()
     plt.savefig(output_path, dpi=300)
     plt.close()
 
 def plot_r2(results, method, output_path):
     """
-    Plot Train/Test R² against number of features.
+    Plot Train/Test R² against number of features with adaptive clean ticks.
     """
+    import matplotlib.ticker as ticker
 
-    plt.figure(figsize=(9, 6))
-    plt.plot(results["n_features"], results["train_r2"],marker=".",label="Train R²")
-    plt.plot(results["n_features"],results["test_r2"],marker=".",label="Test R²")
+    plt.figure(figsize=(9, 5.5))
+    n_pts = len(results["n_features"])
+    marker_style = "." if n_pts <= 20 else None
+
+    plt.plot(results["n_features"], results["train_r2"], marker=marker_style, linewidth=2, linestyle="--", color="#64748b", label="Train R²")
+    plt.plot(results["n_features"], results["test_r2"], marker=marker_style, linewidth=2.2, color="#059669", label="Test R²")
+
     best = get_best_r2_result(results)
 
     if best is not None:
-        plt.scatter(best["n_features"], best["test_r2"], c="red", s=100, marker="*", zorder=5, label=f"Best Test R² (k={int(best['n_features'])})")
+        best_k = int(best["n_features"])
+        best_val = best["test_r2"]
+        plt.axvline(best_k, color="#dc2626", linestyle=":", alpha=0.6, linewidth=1.5)
+        plt.scatter(best_k, best_val, c="#dc2626", s=140, marker="*", zorder=5, label=f"Best Test R² (k={best_k}, R²={best_val:.4f})")
 
-    plt.xlabel("Number of Features (k)")
-    plt.ylabel("R²")
-    plt.title(f"{method.replace('_', ' ').title()} - R²")
-    plt.xticks(results["n_features"])
-    plt.grid(True, alpha=0.3)
-    plt.legend()
+    plt.xlabel("Number of Features (k)", fontweight="bold")
+    plt.ylabel("R²", fontweight="bold")
+    plt.title(f"{method.replace('_', ' ').title()} - R² vs Feature Count", fontsize=13, fontweight="bold")
+
+    if n_pts <= 20:
+        plt.xticks(results["n_features"])
+    else:
+        ax = plt.gca()
+        ax.xaxis.set_major_locator(ticker.MaxNLocator(12, integer=True))
+
+    plt.grid(True, alpha=0.25, linestyle="--")
+    plt.legend(framealpha=0.9)
     plt.tight_layout()
     plt.savefig(output_path, dpi=300)
     plt.close()
@@ -156,26 +187,27 @@ def print_best_result(results, method):
     comma-separated string.
     """
 
-    best_rmse = get_best_result(results)
+    best_rmse = get_best_rmse_result(results)
 
     if best_rmse is not None:
 
+        features = print_selected_features(best_rmse["selected_features"])
+        
         print(f"\n{method} - Best Test RMSE")
         print(f"k = {int(best_rmse['n_features'])}")
         print(f"RMSE = {best_rmse['test_rmse']:.6f}")
-        print(f"\nSelected features for best RMSE model:")
-
-        features = print_selected_features(best_rmse["selected_features"])
-
-        for feature in features:
-            print(f" - {feature}")
+        print(f"Selected features for best RMSE model: {features}")
 
     best_r2 = get_best_r2_result(results)
 
     if best_r2 is not None:
+
+        features = print_selected_features(best_r2["selected_features"])
+        
         print(f"\n{method} - Best Test R²")
         print(f"k = {int(best_r2['n_features'])}")
         print(f"R² = {best_r2['test_r2']:.6f}")
+        print(f"Selected features for best R² model: {features}")
 
 # Run one method
 def run_method(method, X_train, X_test, y_train, y_test, output_dir):
@@ -198,15 +230,12 @@ def run_method(method, X_train, X_test, y_train, y_test, output_dir):
 
     csv_path = os.path.join(output_dir, f"{method}.csv")
     results.to_csv(csv_path, index=False, encoding="utf-8-sig")
-    print(f"Results saved: {csv_path}")
 
     rmse_path = os.path.join(output_dir, f"{method}.png")
     plot_rmse(results, method, rmse_path)
-    print(f"RMSE plot saved: {rmse_path}")
 
     r2_path = os.path.join(output_dir, f"{method}_r2.png")
     plot_r2(results, method, r2_path)
-    print(f"R² plot saved: {r2_path}")
 
     print_best_result(results, method)
 

@@ -28,21 +28,37 @@ MAX_FEATURES = 5
 TARGET_COLUMNS = {
     "startups_50": "Profit",
     "boston_housing": "MEDV",
+    "cancer_deathrate": "TARGET_deathRate",
+    "student_performance": "G3",
+    "cover_type": "Cover_Type",
+    "amse_housing": "SalePrice",
 }
 
 DATASET_DISPLAY_NAMES = {
+    "amse_housing": "Ames Housing (Sale Price Evaluation)",
     "startups_50": "50 Startups (Profit Prediction)",
     "boston_housing": "Boston Housing (Price Valuation)",
+    "cancer_deathrate": "US Cancer Mortality (Death Rate)",
+    "student_performance": "Student Performance (Final Grade G3)",
+    "cover_type": "Forest Cover Type (Cartographic Prediction)",
 }
 
 DATASET_DESCRIPTIONS = {
     "startups_50": "Predict profit for 50 commercial startups based on R&D, Administration, Marketing Spend, and State location. Explores the 2-feature sweet spot vs overfitting.",
     "boston_housing": "Predict median home values (MEDV in $1000s) across 506 Boston suburbs using socio-economic and environmental predictors (RM, LSTAT, PTRATIO, etc.).",
+    "cancer_deathrate": "Predict county-level cancer mortality rates (per 100,000 residents) using socio-economic, healthcare coverage, and clinical demographic variables.",
+    "student_performance": "Predict secondary student final grades (G3 scale 0-20) based on demographic, social, and academic history predictors.",
+    "cover_type": "Predict forest cover classification (7 species categories) from USGS wilderness cartographic, elevation, hydrology, and soil attributes.",
+    "amse_housing": "Predict residential home sale prices across Ames, Iowa using 80+ structural, quality, neighborhood, and remodel year predictors.",
 }
 
 TARGET_UNITS = {
     "startups_50": "$",
     "boston_housing": "k$",
+    "cancer_deathrate": "per 100k",
+    "student_performance": "pts",
+    "cover_type": "Class",
+    "amse_housing": "$",
 }
 
 METHODS = [
@@ -154,12 +170,12 @@ def compute_ols_stats(X_train_sub, y_train, X_test_sub, y_test, feature_names):
     for i, name in enumerate(all_names):
         coef_details.append({
             "feature": name,
-            "coef": float(all_coefs[i]),
-            "stderr": float(se[i]),
-            "tstat": float(t_stats[i]),
-            "pvalue": float(p_values[i]),
-            "ci_lower": float(ci_lower[i]),
-            "ci_upper": float(ci_upper[i]),
+            "coef": round(float(all_coefs[i]), 4),
+            "stderr": round(float(se[i]), 4),
+            "tstat": round(float(t_stats[i]), 3),
+            "pvalue": round(float(p_values[i]), 5),
+            "ci_lower": round(float(ci_lower[i]), 3),
+            "ci_upper": round(float(ci_upper[i]), 3),
         })
 
     # Overall F-statistic
@@ -170,14 +186,14 @@ def compute_ols_stats(X_train_sub, y_train, X_test_sub, y_test, feature_names):
     f_pval = 1 - stats.f.cdf(f_stat, p, dof) if p > 0 else 1.0
 
     # Test metrics
-    test_rmse = float(np.sqrt(mean_squared_error(y_test, test_pred)))
-    train_rmse = float(np.sqrt(mean_squared_error(y_train, train_pred)))
-    train_r2 = float(r2_score(y_train, train_pred))
-    test_r2 = float(r2_score(y_test, test_pred))
-    mae = float(mean_absolute_error(y_test, test_pred))
+    test_rmse = round(float(np.sqrt(mean_squared_error(y_test, test_pred))), 4)
+    train_rmse = round(float(np.sqrt(mean_squared_error(y_train, train_pred))), 4)
+    train_r2 = round(float(r2_score(y_train, train_pred)), 4)
+    test_r2 = round(float(r2_score(y_test, test_pred)), 4)
+    mae = round(float(mean_absolute_error(y_test, test_pred)), 4)
 
     n_test = len(y_test)
-    adj_r2 = float(1 - (1 - test_r2) * (n_test - 1) / max(1, n_test - p - 1))
+    adj_r2 = round(float(1 - (1 - test_r2) * (n_test - 1) / max(1, n_test - p - 1)), 4)
 
     # Test Outliers / Residuals
     residuals = y_test.values - test_pred
@@ -201,18 +217,18 @@ def compute_ols_stats(X_train_sub, y_train, X_test_sub, y_test, feature_names):
         outliers.append({
             "rank": rank,
             "index": orig_id,
-            "actual": actual_val,
-            "predicted": pred_val,
-            "residual": res_val,
-            "abs_error": float(abs_errors[idx]),
-            "pct_error": pct_err,
+            "actual": round(actual_val, 2),
+            "predicted": round(pred_val, 2),
+            "residual": round(res_val, 2),
+            "abs_error": round(float(abs_errors[idx]), 2),
+            "pct_error": round(pct_err, 2),
             "status": status,
         })
 
     return {
         "coefficients": coef_details,
-        "f_stat": float(f_stat),
-        "f_pvalue": float(f_pval),
+        "f_stat": round(float(f_stat), 2),
+        "f_pvalue": round(float(f_pval), 5),
         "train_rmse": train_rmse,
         "test_rmse": test_rmse,
         "train_r2": train_r2,
@@ -373,7 +389,7 @@ def main():
         all_datasets[ds_id] = ds_data
 
     # Write model_data.js
-    json_str = json.dumps(all_datasets, indent=2)
+    json_str = json.dumps(all_datasets, separators=(',', ':'))
     js_content = f"// Auto-generated by export_web_data.py\nwindow.DATASETS_DATA = {json_str};\n"
 
     with open(OUTPUT_JS, "w", encoding="utf-8") as f:

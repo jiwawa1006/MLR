@@ -34,12 +34,12 @@
           <i class="fa-solid fa-chevron-right breadcrumb-separator"></i>
           <span>Machine Learning</span>
           <i class="fa-solid fa-chevron-right breadcrumb-separator"></i>
-          <span class="breadcrumb-current" id="breadcrumbDataset">50 Startups</span>
+          <span class="breadcrumb-current" id="breadcrumbDataset">Ames Housing</span>
         </div>
         <div class="header-title-row">
           <h1>
             <span class="brand-icon-wrap"><i class="fa-solid fa-chart-line"></i></span>
-            <span id="headerTitle">Multiple Linear Regression Explorer</span>
+            <span id="headerTitle">Ames Housing MLR Explorer</span>
           </h1>
           <span class="badge-pill brand-badge">CRISP-DM</span>
         </div>
@@ -59,7 +59,7 @@
           </div>
         </div>
 
-        <a href="https://github.com/jiwawa1006/DIC2_MultiLR" target="_blank" id="githubRepoLink" class="btn btn-secondary" title="View Source on GitHub">
+        <a href="https://github.com/jiwawa1006/MLR" target="_blank" id="githubRepoLink" class="btn btn-secondary" title="View Source on GitHub">
           <i class="fa-brands fa-github"></i>
           <span>GitHub</span>
         </a>
@@ -72,15 +72,15 @@
     <!-- Hero Card Banner -->
     <section class="hero-card" id="heroSection">
       <div class="hero-content">
-        <h2 id="heroTitle">Feature Selection & Parsimony Analysis</h2>
+        <h2 id="heroTitle">Ames Housing (Sale Price Evaluation) - Feature Progression & Model Parsimony</h2>
         <p id="heroDesc">
-          Evaluate 7 Machine Learning Feature Selection Algorithms (Lasso, Forward SFS, Backward Elimination, RFE, ElasticNet, Mutual Information, Variance Threshold). Explore the bias-variance tradeoff across feature counts $k=1 \dots 5$, pinpointing the optimal parsimonious sweet spot.
+          Predict residential home sale prices across Ames, Iowa using 80+ structural, quality, neighborhood, and remodel year predictors. Evaluate 7 Machine Learning Feature Selection Algorithms across feature progression steps to pinpoint the optimal parsimonious sweet spot.
         </p>
         <div class="hero-tags" id="heroTags">
-          <span class="hero-pill" id="pillDataset"><i class="fa-solid fa-table-list"></i> Dataset: <strong id="heroDatasetName">50 Startups</strong></span>
-          <span class="hero-pill" id="pillSamples"><i class="fa-solid fa-users"></i> Samples: <strong id="heroSamples">50 (40 Train / 10 Test)</strong></span>
-          <span class="hero-pill" id="pillPredictors"><i class="fa-solid fa-cubes"></i> Predictors: <strong id="heroPredictors">5 Encoded Features</strong></span>
-          <span class="hero-pill hero-pill-sweet" id="pillSweet"><i class="fa-solid fa-star"></i> Global Sweet Spot: <strong id="heroSweetSpot">k=2 ($8,206 RMSE)</strong></span>
+          <span class="hero-pill" id="pillDataset"><i class="fa-solid fa-table-list"></i> Dataset: <strong id="heroDatasetName">Ames Housing (Sale Price Evaluation)</strong></span>
+          <span class="hero-pill" id="pillSamples"><i class="fa-solid fa-users"></i> Samples: <strong id="heroSamples">2,930 (2,344 Train / 586 Test)</strong></span>
+          <span class="hero-pill" id="pillPredictors"><i class="fa-solid fa-cubes"></i> Predictors: <strong id="heroPredictors">259 Encoded Features</strong></span>
+          <span class="hero-pill hero-pill-sweet" id="pillSweet"><i class="fa-solid fa-star"></i> Global Sweet Spot: <strong id="heroSweetSpot">k=192 via FORWARD ($29,371.39)</strong></span>
         </div>
       </div>
     </section>
@@ -99,11 +99,28 @@
 
       <div class="control-row" style="margin-top: 18px;">
         <div class="control-header-line">
-          <span class="control-label"><i class="fa-solid fa-list-ol"></i> 2. Number of Selected Features (k = 1 to 5)</span>
-          <span class="control-hint">Toggle $k$ to observe the bias-variance tradeoff and test performance</span>
+          <span class="control-label" id="kControlLabel"><i class="fa-solid fa-list-ol"></i> 2. Number of Selected Features (k)</span>
+          <span class="control-hint">Scrub slider, step with +/-, or click presets to observe bias-variance progression</span>
         </div>
-        <div class="k-selector-group" id="kSelectorGroup">
-          <!-- Dynamically populated by app.js -->
+        <div class="k-controls-container" id="kControlsContainer">
+          <div class="k-slider-box" id="kSliderBox">
+            <div class="k-slider-row">
+              <button class="k-step-btn" id="kStepDec" title="Decrement k" aria-label="Decrease k"><i class="fa-solid fa-minus"></i></button>
+              <input type="range" id="kRangeSlider" class="k-range-slider" min="1" max="5" value="2">
+              <button class="k-step-btn" id="kStepInc" title="Increment k" aria-label="Increase k"><i class="fa-solid fa-plus"></i></button>
+              <div class="k-counter-badge">
+                <span>k =</span>
+                <input type="number" id="kNumberInput" class="k-number-input" min="1" max="5" value="2">
+                <span class="k-max-label" id="kMaxLabel">/ 5</span>
+              </div>
+            </div>
+            <div class="k-presets-container" id="kPresetsContainer">
+              <!-- Dynamically populated: Sweet Spot, Minimal, Full Model, etc. -->
+            </div>
+          </div>
+          <div class="k-selector-group" id="kSelectorGroup">
+            <!-- Dynamically populated by app.js: individual buttons when maxK is compact or expanded -->
+          </div>
         </div>
       </div>
     </section>
@@ -186,32 +203,61 @@
     </section>
 
     <!-- Dual Interactive Charts (RMSE and R2) -->
-    <section class="dual-charts-grid" aria-label="Interactive Visualizations">
-      <!-- Left Chart: RMSE -->
-      <div class="card chart-card">
-        <div class="card-header">
-          <div class="card-title-group">
-            <h3><i class="fa-solid fa-chart-line" style="color: var(--primary);"></i> RMSE vs Feature Count (k)</h3>
-            <div class="card-subtitle">Lower is better. Shows Train vs Test RMSE curve and optimal sweet spot.</div>
+    <section class="dual-charts-section" aria-label="Interactive Visualizations">
+      <!-- Chart Focus Range Toolbar (for datasets with many features) -->
+      <div class="chart-toolbar-row" id="chartToolbarRow" style="display: none;">
+        <div class="chart-toolbar-left">
+          <span class="toolbar-label"><i class="fa-solid fa-magnifying-glass-chart"></i> Curve Focus:</span>
+          <div class="chart-zoom-pills" id="chartZoomPills">
+            <button class="zoom-pill active" id="btnZoomAll" data-range="all">Full Model (1 – <span id="zoomMaxK">259</span>)</button>
+            <button class="zoom-pill" id="btnZoomEarly" data-range="early">Parsimonious Zone (1 – 40)</button>
+            <button class="zoom-pill" id="btnZoomSweet" data-range="sweet">Around Sweet Spot (k=<span id="zoomSweetK">192</span>)</button>
           </div>
-          <span class="badge-tag badge-blue" id="rmseChartBadge">Method</span>
         </div>
-        <div class="chart-container">
-          <canvas id="rmseChart"></canvas>
+        <div class="chart-toolbar-right">
+          <span class="chart-hint-text"><i class="fa-solid fa-arrow-pointer"></i> Click any point on curve to set k</span>
         </div>
       </div>
 
-      <!-- Right Chart: R-squared -->
-      <div class="card chart-card">
-        <div class="card-header">
-          <div class="card-title-group">
-            <h3><i class="fa-solid fa-arrow-trend-up" style="color: var(--accent-emerald);"></i> R² vs Feature Count (k)</h3>
-            <div class="card-subtitle">Higher is better. Measures variance explained across feature sizes.</div>
+      <div class="dual-charts-grid">
+        <!-- Left Chart: RMSE -->
+        <div class="card chart-card">
+          <div class="card-header">
+            <div class="card-title-group">
+              <h3><i class="fa-solid fa-chart-line" style="color: var(--primary);"></i> RMSE vs Feature Count (k)</h3>
+              <div class="card-subtitle">Lower is better. Optimal sweet spot marked with <span style="color: var(--accent-emerald); font-weight: 700;">★ Star</span>.</div>
+            </div>
+            <div class="card-header-actions">
+              <span class="badge-tag badge-blue" id="rmseChartBadge">Method</span>
+            </div>
           </div>
-          <span class="badge-tag badge-green" id="r2ChartBadge">Method</span>
+          <div class="chart-stat-strip" id="rmseStatStrip">
+            <span class="stat-pill sweet-pill" id="rmseSweetPill"><i class="fa-solid fa-star"></i> Sweet Spot: <strong id="rmseSweetText">k=192 ($29,371.39)</strong></span>
+            <span class="stat-pill active-pill" id="rmseActivePill"><i class="fa-solid fa-circle-dot"></i> Active: <strong id="rmseActiveText">k=192 ($29,371.39)</strong></span>
+          </div>
+          <div class="chart-container">
+            <canvas id="rmseChart"></canvas>
+          </div>
         </div>
-        <div class="chart-container">
-          <canvas id="r2Chart"></canvas>
+
+        <!-- Right Chart: R-squared -->
+        <div class="card chart-card">
+          <div class="card-header">
+            <div class="card-title-group">
+              <h3><i class="fa-solid fa-arrow-trend-up" style="color: var(--accent-emerald);"></i> R² vs Feature Count (k)</h3>
+              <div class="card-subtitle">Higher is better. Measures variance explained across feature sizes.</div>
+            </div>
+            <div class="card-header-actions">
+              <span class="badge-tag badge-green" id="r2ChartBadge">Method</span>
+            </div>
+          </div>
+          <div class="chart-stat-strip" id="r2StatStrip">
+            <span class="stat-pill sweet-pill" id="r2SweetPill"><i class="fa-solid fa-star"></i> Sweet Spot: <strong id="r2SweetText">k=192 (0.8950)</strong></span>
+            <span class="stat-pill active-pill" id="r2ActivePill"><i class="fa-solid fa-circle-dot"></i> Active: <strong id="r2ActiveText">k=192 (0.8950)</strong></span>
+          </div>
+          <div class="chart-container">
+            <canvas id="r2Chart"></canvas>
+          </div>
         </div>
       </div>
     </section>
@@ -224,6 +270,11 @@
       </div>
       <div class="equation-formula" id="equationBox">
         <!-- Dynamically rendered -->
+      </div>
+      <div id="equationExpandRow" style="display: none; margin-top: 10px;">
+        <button class="btn btn-sm" id="equationToggleBtn" style="background: rgba(255,255,255,0.12); color: #c7d2fe; border: 1px solid rgba(255,255,255,0.2);">
+          <i class="fa-solid fa-chevron-down"></i> <span id="equationToggleText">Show all terms</span>
+        </button>
       </div>
     </section>
 
@@ -266,12 +317,23 @@
             <h3><i class="fa-solid fa-calculator" style="color: var(--accent-emerald);"></i> Live Value Predictor</h3>
             <div class="card-subtitle">Simulate predictions in real-time using the active model weights.</div>
           </div>
-          <span class="badge-tag badge-green"><i class="fa-solid fa-bolt"></i> Real-time</span>
+          <div style="display: flex; gap: 8px; align-items: center;">
+            <button class="btn btn-secondary btn-sm" id="resetCalcBtn" title="Reset all inputs to feature medians">
+              <i class="fa-solid fa-rotate-left"></i> Reset Medians
+            </button>
+            <span class="badge-tag badge-green"><i class="fa-solid fa-bolt"></i> Real-time</span>
+          </div>
         </div>
 
         <div class="calculator-body">
           <div id="calculatorInputsContainer" class="calc-inputs-container">
             <!-- Dynamically populated for the active features -->
+          </div>
+
+          <div id="calcExpandRow" style="display: none; text-align: center; margin: 12px 0;">
+            <button class="btn btn-secondary btn-sm" id="calcToggleAllBtn">
+              <i class="fa-solid fa-chevron-down"></i> <span id="calcToggleText">Show all features</span>
+            </button>
           </div>
 
           <div class="prediction-output-box">
