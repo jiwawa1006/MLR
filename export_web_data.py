@@ -335,9 +335,14 @@ def process_dataset(csv_path):
             # Preserve precomputed cv_rmse if present
             cv_rmse = float(row.get("cv_rmse", stats_dict["test_rmse"]))
 
+            feat_map = {name: i for i, name in enumerate(dataset_result["features"])}
+            fi_list = [feat_map[f] for f in selected_features if f in feat_map]
+            c_list = [[round(c["coef"], 4), round(c["stderr"], 4)] for c in stats_dict["coefficients"]]
+            o_list = [[o["index"], round(o["actual"], 2), round(o["predicted"], 2)] for o in stats_dict["outliers"]]
+
             k_data = {
                 "k": k,
-                "features": selected_features,
+                "fi": fi_list,
                 "train_rmse": stats_dict["train_rmse"],
                 "test_rmse": stats_dict["test_rmse"],
                 "train_r2": stats_dict["train_r2"],
@@ -347,8 +352,8 @@ def process_dataset(csv_path):
                 "cv_rmse": cv_rmse,
                 "f_stat": stats_dict["f_stat"],
                 "f_pvalue": stats_dict["f_pvalue"],
-                "coefficients": stats_dict["coefficients"],
-                "outliers": stats_dict["outliers"],
+                "c": c_list,
+                "o": o_list,
             }
 
             if stats_dict["test_rmse"] < min_overall_rmse:

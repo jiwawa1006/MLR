@@ -24,21 +24,48 @@
     variance_threshold: '#64748b',
   };
 
-  // Wait for DOM
-  document.addEventListener('DOMContentLoaded', () => {
-    initApp();
-  });
+  // Wait for DOM & Data with resilient polling
+  function tryInitApp() {
+    if (window.DATASETS_DATA && Object.keys(window.DATASETS_DATA).length > 0) {
+      initApp();
+    } else {
+      let attempts = 0;
+      const interval = setInterval(() => {
+        attempts++;
+        if (window.DATASETS_DATA && Object.keys(window.DATASETS_DATA).length > 0) {
+          clearInterval(interval);
+          initApp();
+        } else if (attempts > 200) { // 10 seconds timeout
+          clearInterval(interval);
+          console.error('Timeout waiting for window.DATASETS_DATA.');
+        }
+      }, 50);
+    }
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', tryInitApp);
+  } else {
+    tryInitApp();
+  }
 
   function initApp() {
     if (!window.DATASETS_DATA || Object.keys(window.DATASETS_DATA).length === 0) {
       console.error('No dataset data found in window.DATASETS_DATA.');
-      alert('Error: model_data.js was not loaded or contains no data. Please run export_web_data.py.');
       return;
     }
 
     populateDatasetDropdown();
     setupGlobalEventListeners();
     loadDataset(currentDatasetId);
+
+    const loader = document.getElementById('appLoader');
+    if (loader) {
+      loader.classList.add('fade-out');
+      setTimeout(() => {
+        if (loader.parentNode) loader.parentNode.removeChild(loader);
+      }, 400);
+    }
   }
 
   // Populate Dropdown Menu
@@ -433,13 +460,76 @@
     renderOutliersTable(ds);
   }
 
+  // Normal CDF approximation for p-value calculation
+  function normalCdf(x) {
+    const t = 1 / (1 + 0.2316419 * Math.abs(x));
+    const d = 0.3989422804014327 * Math.exp(-x * x / 2);
+    const prob = d * t * (0.319381530 + t * (-0.356563782 + t * (1.781477937 + t * (-1.821255978 + t * 1.330274429))));
+    return x > 0 ? 1 - prob : prob;
+  }
+
+  // Normalize row: reconstruct features, coefficients, and outliers from compact schema
+  function normalizeRow(row, ds) {
+    if (!row) return row;
+
+    // 1. Reconstruct features from indices
+    if (!row.features && row.fi && ds && ds.features) {
+      row.features = row.fi.map((idx) => ds.features[idx] || `Feat_${idx}`);
+    }
+
+    // 2. Reconstruct coefficients from compact pairs [coef, stderr]
+    if (!row.coefficients && row.c) {
+      const feats = row.features || [];
+      const tCrit = 1.96;
+      row.coefficients = row.c.map(([coef, stderr], i) => {
+        const feature = i === 0 ? 'Intercept (β₀)' : (feats[i - 1] || `Var_${i}`);
+        const tstat = Math.abs(stderr) > 1e-6 ? coef / stderr : 0;
+        const pval = 2 * (1 - normalCdf(Math.abs(tstat)));
+        return {
+          feature,
+          coef,
+          stderr,
+          tstat: Math.round(tstat * 1000) / 1000,
+          pvalue: Math.max(0, Math.min(1, Math.round(pval * 100000) / 100000)),
+          ci_lower: Math.round((coef - tCrit * stderr) * 100) / 100,
+          ci_upper: Math.round((coef + tCrit * stderr) * 100) / 100,
+        };
+      });
+    }
+
+    // 3. Reconstruct outliers from compact triples [index, actual, predicted]
+    if (!row.outliers && row.o) {
+      row.outliers = row.o.map(([origId, actual, predicted], idx) => {
+        const residual = Math.round((actual - predicted) * 100) / 100;
+        const abs_error = Math.abs(residual);
+        const pct_error = Math.round((abs_error / Math.max(Math.abs(actual), 1e-4) * 100) * 100) / 100;
+        let status = 'normal';
+        if (pct_error > 15) status = 'alert';
+        else if (pct_error > 8) status = 'warning';
+        return {
+          rank: idx + 1,
+          index: origId,
+          actual,
+          predicted,
+          residual,
+          abs_error,
+          pct_error,
+          status,
+        };
+      });
+    }
+
+    return row;
+  }
+
   function getActiveRowData(ds) {
     const methodObj = currentAlgo === 'ALL'
       ? (ds.methods['lasso'] || Object.values(ds.methods)[0])
       : ds.methods[currentAlgo];
 
     if (!methodObj || !methodObj.data) return null;
-    return methodObj.data.find((d) => d.k === currentK) || methodObj.data[0];
+    const rawRow = methodObj.data.find((d) => d.k === currentK) || methodObj.data[0];
+    return normalizeRow(rawRow, ds);
   }
 
   function renderDashboardMetrics(ds) {

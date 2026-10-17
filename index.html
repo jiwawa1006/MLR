@@ -17,13 +17,18 @@
   <!-- Chart.js CDN -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   
-  <!-- Model Data JS -->
-  <script src="model_data.js"></script>
-  
   <!-- Custom Styles -->
   <link rel="stylesheet" href="index.css">
 </head>
 <body>
+  <!-- Initial App Loading State -->
+  <div id="appLoader" class="app-loader">
+    <div class="loader-content">
+      <div class="loader-spinner"></div>
+      <div class="loader-title">AIoT Multiple Linear Regression Explorer</div>
+      <div class="loader-desc">Initializing model diagnostics and interactive curves...</div>
+    </div>
+  </div>
 
   <!-- Top Sticky Navigation Bar -->
   <header class="top-header">
@@ -432,7 +437,8 @@
     </div>
   </footer>
 
-  <!-- Application Logic -->
+  <!-- Model Data & Application Logic -->
+  <script src="model_data.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
