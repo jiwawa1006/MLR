@@ -84,26 +84,10 @@
       currentDatasetId = datasetIds[0];
     }
 
-    // Exact ordered list matching user preference
-    const DATASET_ORDER = [
-      'amse_housing',
-      'automoblie',
-      'boston_housing',
-      'cancer_deathrate',
-      'cover_type',
-      'e-commerce_customer_behavior',
-      'startups_50',
-      'student_performance',
-      'wine_quality',
-    ];
-
     const sortedIds = [...datasetIds].sort((a, b) => {
-      const idxA = DATASET_ORDER.indexOf(a);
-      const idxB = DATASET_ORDER.indexOf(b);
-      if (idxA !== -1 && idxB !== -1) return idxA - idxB;
-      if (idxA !== -1) return -1;
-      if (idxB !== -1) return 1;
-      return a.localeCompare(b);
+      const nameA = (datasets[a].name || a).toLowerCase();
+      const nameB = (datasets[b].name || b).toLowerCase();
+      return nameA.localeCompare(nameB);
     });
 
     sortedIds.forEach((id) => {

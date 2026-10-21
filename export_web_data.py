@@ -411,12 +411,7 @@ def main():
         print(f"No CSV files found in {DATA_DIR}.")
         return
 
-    target_order = list(TARGET_COLUMNS.keys())
-    csv_files = sorted(
-        csv_files,
-        key=lambda f: target_order.index(os.path.splitext(os.path.basename(f))[0])
-        if os.path.splitext(os.path.basename(f))[0] in target_order else 999
-    )
+    csv_files = sorted(csv_files)
 
     all_datasets = {}
 
