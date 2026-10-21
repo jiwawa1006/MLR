@@ -34,50 +34,50 @@ CV = 5
 MAX_FEATURES = 5
 
 TARGET_COLUMNS = {
-    "amse_housing": "SalePrice",
-    "automoblie": "price",
+    "startups_50": "Profit",
     "boston_housing": "MEDV",
     "cancer_deathrate": "TARGET_deathRate",
-    "cover_type": "Cover_Type",
-    "e-commerce_customer_behavior": "Total Spend",
-    "startups_50": "Profit",
     "student_performance": "G3",
+    "cover_type": "Cover_Type",
+    "amse_housing": "SalePrice",
+    "automoblie": "price",
+    "e-commerce_customer_behavior": "Total Spend",
     "wine_quality": "quality",
 }
 
 DATASET_DISPLAY_NAMES = {
     "amse_housing": "Ames Housing (Sale Price Evaluation)",
-    "automoblie": "Automobile Pricing (Vehicle Valuation)",
+    "startups_50": "50 Startups (Profit Prediction)",
     "boston_housing": "Boston Housing (Price Valuation)",
     "cancer_deathrate": "US Cancer Mortality (Death Rate)",
-    "cover_type": "Forest Cover Type (Cartographic Prediction)",
-    "e-commerce_customer_behavior": "E-Commerce Customer Behavior (Total Spend)",
-    "startups_50": "50 Startups (Profit Prediction)",
     "student_performance": "Student Performance (Final Grade G3)",
+    "cover_type": "Forest Cover Type (Cartographic Prediction)",
+    "automoblie": "Automobile Pricing (Vehicle Valuation)",
+    "e-commerce_customer_behavior": "E-Commerce Customer Behavior (Total Spend)",
     "wine_quality": "Wine Quality (Red Wine Score)",
 }
 
 DATASET_DESCRIPTIONS = {
-    "amse_housing": "Predict residential home sale prices across Ames, Iowa using 80+ structural, quality, neighborhood, and remodel year predictors.",
-    "automoblie": "Predict automobile market prices based on technical specifications including engine dimensions, horsepower, curb weight, fuel system, and body styling.",
+    "startups_50": "Predict profit for 50 commercial startups based on R&D, Administration, Marketing Spend, and State location. Explores the 2-feature sweet spot vs overfitting.",
     "boston_housing": "Predict median home values (MEDV in $1000s) across 506 Boston suburbs using socio-economic and environmental predictors (RM, LSTAT, PTRATIO, etc.).",
     "cancer_deathrate": "Predict county-level cancer mortality rates (per 100,000 residents) using socio-economic, healthcare coverage, and clinical demographic variables.",
-    "cover_type": "Predict forest cover classification (7 species categories) from USGS wilderness cartographic, elevation, hydrology, and soil attributes.",
-    "e-commerce_customer_behavior": "Predict total customer expenditure in e-commerce based on demographic profile, purchase history, ratings, membership tier, and satisfaction.",
-    "startups_50": "Predict profit for 50 commercial startups based on R&D, Administration, Marketing Spend, and State location. Explores the 2-feature sweet spot vs overfitting.",
     "student_performance": "Predict secondary student final grades (G3 scale 0-20) based on demographic, social, and academic history predictors.",
+    "cover_type": "Predict forest cover classification (7 species categories) from USGS wilderness cartographic, elevation, hydrology, and soil attributes.",
+    "amse_housing": "Predict residential home sale prices across Ames, Iowa using 80+ structural, quality, neighborhood, and remodel year predictors.",
+    "automoblie": "Predict automobile market prices based on technical specifications including engine dimensions, horsepower, curb weight, fuel system, and body styling.",
+    "e-commerce_customer_behavior": "Predict total customer expenditure in e-commerce based on demographic profile, purchase history, ratings, membership tier, and satisfaction.",
     "wine_quality": "Predict red wine sensory quality scores (scale 0-10) using physicochemical properties such as acidity, residual sugar, sulfur dioxide, pH, and alcohol content.",
 }
 
 TARGET_UNITS = {
-    "amse_housing": "$",
-    "automoblie": "$",
+    "startups_50": "$",
     "boston_housing": "k$",
     "cancer_deathrate": "per 100k",
-    "cover_type": "Class",
-    "e-commerce_customer_behavior": "$",
-    "startups_50": "$",
     "student_performance": "pts",
+    "cover_type": "Class",
+    "amse_housing": "$",
+    "automoblie": "$",
+    "e-commerce_customer_behavior": "$",
     "wine_quality": "score",
 }
 
@@ -410,8 +410,6 @@ def main():
     if not csv_files:
         print(f"No CSV files found in {DATA_DIR}.")
         return
-
-    csv_files = sorted(csv_files)
 
     all_datasets = {}
 

@@ -219,10 +219,10 @@ def print_best_result(results, method):
 
         features = print_selected_features(best_r2["selected_features"])
         
-        print(f"\n{method} - Best Test R²")
+        print(f"\n{method} - Best Test R^2")
         print(f"k = {int(best_r2['n_features'])}")
-        print(f"R² = {best_r2['test_r2']:.6f}")
-        print(f"Selected features for best R² model: {features}")
+        print(f"R^2 = {best_r2['test_r2']:.6f}")
+        print(f"Selected features for best R^2 model: {features}")
 
 # Run one method
 def run_method(method, X_train, X_test, y_train, y_test, output_dir, force=False):
@@ -262,131 +262,35 @@ def run_method(method, X_train, X_test, y_train, y_test, output_dir, force=False
 
     return results
 
-def resolve_dataset_files(inputs):
-    """
-    Resolves input arguments (file paths, dataset names, or glob patterns)
-    to concrete CSV files in DATA_DIR or on disk.
-    """
-    target_order = list(TARGET_COLUMNS.keys())
-
-    if not inputs:
-        all_csvs = glob.glob(os.path.join(DATA_DIR, "*.csv"))
-        all_csvs.sort(
-            key=lambda f: target_order.index(os.path.splitext(os.path.basename(f))[0])
-            if os.path.splitext(os.path.basename(f))[0] in target_order else 999
-        )
-        return all_csvs
-
-    resolved = []
-    for item in inputs:
-        # Support glob patterns like "data/*.csv"
-        if any(c in item for c in ["*", "?", "["]):
-            matches = glob.glob(item)
-            if not matches and not os.path.isabs(item):
-                matches = glob.glob(os.path.join(DATA_DIR, item))
-            for m in matches:
-                if m.lower().endswith(".csv") and m not in resolved:
-                    resolved.append(m)
-            continue
-
-        # Check candidate file paths
-        candidates = [
-            item,
-            os.path.join(DATA_DIR, item),
-            os.path.join(DATA_DIR, f"{item}.csv"),
-            f"{item}.csv",
-        ]
-
-        found = None
-        for cand in candidates:
-            if os.path.isfile(cand) and cand.lower().endswith(".csv"):
-                found = os.path.abspath(cand)
-                break
-
-        # Case-insensitive dataset name matching inside DATA_DIR
-        if not found:
-            clean_name = os.path.splitext(os.path.basename(item))[0].lower()
-            for f in glob.glob(os.path.join(DATA_DIR, "*.csv")):
-                if os.path.splitext(os.path.basename(f))[0].lower() == clean_name:
-                    found = os.path.abspath(f)
-                    break
-
-        if found:
-            rel = os.path.relpath(found)
-            if rel not in resolved:
-                resolved.append(rel)
-        else:
-            print(f"Warning: Could not find dataset matching '{item}'.")
-
-    return resolved
-
 # Main
 def main():
     import argparse
 
-    parser = argparse.ArgumentParser(
-        description="Run Multiple Linear Regression feature selection experiments.",
-        usage="python plot_figure.py [dataset_paths ...] [options]"
-    )
-    parser.add_argument(
-        "datasets",
-        nargs="*",
-        help="One or more dataset CSV files or names (e.g. 'data/wine_quality.csv', 'wine_quality'). If omitted, runs all datasets in data/."
-    )
-    parser.add_argument(
-        "--dataset",
-        type=str,
-        default=None,
-        help="Optional flag for a single dataset name or path."
-    )
-    parser.add_argument(
-        "--force",
-        action="store_true",
-        default=False,
-        help="Force recomputing experiments even if results already exist in fig/."
-    )
-    parser.add_argument(
-        "--skip-existing",
-        action="store_true",
-        default=False,
-        help="Skip experiments if output CSV and plots already exist in fig/."
-    )
-    parser.add_argument(
-        "--no-export",
-        action="store_true",
-        default=False,
-        help="Do not re-export web dashboard data (model_data.js) upon completion."
-    )
+    parser = argparse.ArgumentParser(description="Run Multiple Linear Regression feature selection experiments.")
+    parser.add_argument("--force", action="store_true", help="Force recomputing experiments even if results exist.")
+    parser.add_argument("--dataset", type=str, default=None, help="Specific dataset name to run (without .csv).")
     args = parser.parse_args()
 
-    input_targets = list(args.datasets)
-    if args.dataset:
-        input_targets.append(args.dataset)
-
-    csv_files = resolve_dataset_files(input_targets)
+    csv_files = glob.glob(os.path.join(DATA_DIR, "*.csv"))
 
     if not csv_files:
-        print("No valid CSV dataset files found to process.")
+        print(f"No CSV files found in '{DATA_DIR}'.")
         return
 
-    # If specific datasets were explicitly requested, recompute them by default unless --skip-existing is set
-    if args.force:
-        force_run = True
-    elif args.skip_existing:
-        force_run = False
-    elif input_targets:
-        force_run = True
-    else:
-        force_run = False
+    if args.dataset:
+        csv_files = [f for f in csv_files if os.path.splitext(os.path.basename(f))[0].lower() == args.dataset.lower()]
+        if not csv_files:
+            print(f"Dataset '{args.dataset}' not found in '{DATA_DIR}'.")
+            return
 
-    print(f"Found {len(csv_files)} dataset(s) to process (force_run={force_run}).")
+    print(f"Found {len(csv_files)} dataset(s) to process.")
 
     for csv_file in csv_files:
 
         dataset_name = os.path.splitext(os.path.basename(csv_file))[0]
 
         print("\n======================================================================")
-        print(f"Dataset: {dataset_name} ({csv_file})")
+        print(f"Dataset: {dataset_name}")
         print("======================================================================")
 
         df = pd.read_csv(csv_file)
@@ -426,19 +330,18 @@ def main():
         os.makedirs(output_dir, exist_ok=True)
 
         for method in METHODS:
-            run_method(method, X_train, X_test, y_train, y_test, output_dir, force=force_run)
+            run_method(method, X_train, X_test, y_train, y_test, output_dir, force=args.force)
 
     print("\n======================================================================")
-    print("All specified datasets completed.")
+    print("All datasets completed.")
     print("======================================================================")
 
-    if not args.no_export:
-        try:
-            import export_web_data
-            print("\nExporting web dashboard data to model_data.js...")
-            export_web_data.main()
-        except Exception as e:
-            print(f"Notice: Could not auto-export web data: {e}")
+    try:
+        import export_web_data
+        print("\nExporting web dashboard data to model_data.js...")
+        export_web_data.main()
+    except Exception as e:
+        print(f"Notice: Could not auto-export web data: {e}")
 
 
 if __name__ == "__main__":

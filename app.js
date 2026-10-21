@@ -84,10 +84,11 @@
       currentDatasetId = datasetIds[0];
     }
 
+    // Sort dropdown so amse_housing is the very first option
     const sortedIds = [...datasetIds].sort((a, b) => {
-      const nameA = (datasets[a].name || a).toLowerCase();
-      const nameB = (datasets[b].name || b).toLowerCase();
-      return nameA.localeCompare(nameB);
+      if (a === 'amse_housing') return -1;
+      if (b === 'amse_housing') return 1;
+      return a.localeCompare(b);
     });
 
     sortedIds.forEach((id) => {
