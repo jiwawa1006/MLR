@@ -1,12 +1,12 @@
 ﻿n_features,selected_features,train_rmse,test_rmse,train_r2,test_r2,cv_rmse
-1,total sulfur dioxide,0.8067574576668842,0.729160774064165,0.031334031962142905,0.04456200887034378,0.8072011033401131
+1,total sulfur dioxide,0.8067574576668842,0.729160774064165,0.031334031962142905,0.04456200887034356,0.8072011033401131
 2,"total sulfur dioxide, free sulfur dioxide",0.8034158358052863,0.7311700158486201,0.03934191990367519,0.03928923246997329,0.8054355763575313
 3,"total sulfur dioxide, free sulfur dioxide, fixed acidity",0.800349052505618,0.7174035604813247,0.0466619329537582,0.07512515602784642,0.8030515601809695
-4,"total sulfur dioxide, free sulfur dioxide, fixed acidity, residual sugar",0.8003319729581395,0.7185471868673218,0.04670262122343771,0.0721740852714381,0.8039228688546611
-5,"total sulfur dioxide, free sulfur dioxide, fixed acidity, residual sugar, alcohol",0.7033124108370782,0.6313224979274753,0.26381896220143575,0.28376021030923715,0.7059360726881259
-6,"total sulfur dioxide, free sulfur dioxide, fixed acidity, residual sugar, alcohol, citric acid",0.6962089041064907,0.6171519030982172,0.27861482781565416,0.31555263375321896,0.701306421448882
+4,"total sulfur dioxide, free sulfur dioxide, fixed acidity, residual sugar",0.8003319729581396,0.7185471868673219,0.04670262122343749,0.07217408527143798,0.8039228688546609
+5,"total sulfur dioxide, free sulfur dioxide, fixed acidity, residual sugar, alcohol",0.7033124108370782,0.6313224979274755,0.26381896220143575,0.2837602103092369,0.7059360726881259
+6,"total sulfur dioxide, free sulfur dioxide, fixed acidity, residual sugar, alcohol, citric acid",0.6962089041064907,0.6171519030982171,0.2786148278156543,0.3155526337532192,0.701306421448882
 7,"total sulfur dioxide, free sulfur dioxide, fixed acidity, residual sugar, alcohol, citric acid, volatile acidity",0.6587470909344695,0.6269592169651191,0.3541591883013021,0.29362634355098927,0.6658101982746133
-8,"total sulfur dioxide, free sulfur dioxide, fixed acidity, residual sugar, alcohol, citric acid, volatile acidity, sulphates",0.649078411689821,0.619488208331718,0.3729785556368693,0.3103607038249011,0.6586828962913354
-9,"total sulfur dioxide, free sulfur dioxide, fixed acidity, residual sugar, alcohol, citric acid, volatile acidity, sulphates, pH",0.6484736667290171,0.616427328429046,0.37414640040760616,0.31715885774206176,0.6592037540690046
-10,"total sulfur dioxide, free sulfur dioxide, fixed acidity, residual sugar, alcohol, citric acid, volatile acidity, sulphates, pH, chlorides",0.6446745013437324,0.6150710201550998,0.3814582046092867,0.3201604255332706,0.6561958786433382
-11,"total sulfur dioxide, free sulfur dioxide, fixed acidity, residual sugar, alcohol, citric acid, volatile acidity, sulphates, pH, chlorides, density",0.6442910255023867,0.6164677203737235,0.38219384806515677,0.3170693672733126,0.6599701755018137
+8,"total sulfur dioxide, free sulfur dioxide, fixed acidity, residual sugar, alcohol, citric acid, volatile acidity, sulphates",0.649078411689821,0.619488208331718,0.3729785556368692,0.3103607038249011,0.6586828962913354
+9,"total sulfur dioxide, free sulfur dioxide, fixed acidity, residual sugar, alcohol, citric acid, volatile acidity, sulphates, pH",0.6484736667290171,0.6164273284290462,0.37414640040760616,0.31715885774206154,0.6592037540690046
+10,"total sulfur dioxide, free sulfur dioxide, fixed acidity, residual sugar, alcohol, citric acid, volatile acidity, sulphates, pH, chlorides",0.6446745013437324,0.6150710201550996,0.3814582046092867,0.32016042553327106,0.6561958786433382
+11,"total sulfur dioxide, free sulfur dioxide, fixed acidity, residual sugar, alcohol, citric acid, volatile acidity, sulphates, pH, chlorides, density",0.6442910255023867,0.6164677203737233,0.38219384806515677,0.3170693672733129,0.6599701755018141

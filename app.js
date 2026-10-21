@@ -692,7 +692,8 @@
           btn.addEventListener('click', () => {
             currentZoomRange = btn.dataset.range;
             document.querySelectorAll('#chartZoomPills .zoom-pill').forEach((b) => b.classList.toggle('active', b.dataset.range === currentZoomRange));
-            renderCharts(ds);
+            const activeDs = window.DATASETS_DATA[currentDatasetId];
+            if (activeDs) renderCharts(activeDs);
           });
         }
       });
@@ -1064,6 +1065,7 @@
     const expandRow = document.getElementById('equationExpandRow');
     const toggleBtn = document.getElementById('equationToggleBtn');
     const toggleText = document.getElementById('equationToggleText');
+    const toggleIcon = toggleBtn ? toggleBtn.querySelector('i') : null;
 
     let termsToRender = slopeCoefs;
     const isTruncated = slopeCoefs.length > 8 && !showAllEquationTerms;
@@ -1072,10 +1074,12 @@
       termsToRender = slopeCoefs.slice(0, 8);
       if (expandRow) expandRow.style.display = 'block';
       if (toggleText) toggleText.textContent = `Show all ${slopeCoefs.length} terms (+${slopeCoefs.length - 8} more)`;
+      if (toggleIcon) toggleIcon.className = 'fa-solid fa-chevron-down';
     } else {
       if (slopeCoefs.length > 8) {
         if (expandRow) expandRow.style.display = 'block';
         if (toggleText) toggleText.textContent = 'Collapse to top 8 terms';
+        if (toggleIcon) toggleIcon.className = 'fa-solid fa-chevron-up';
       } else {
         if (expandRow) expandRow.style.display = 'none';
       }
@@ -1099,7 +1103,8 @@
       toggleBtn._hasListener = true;
       toggleBtn.addEventListener('click', () => {
         showAllEquationTerms = !showAllEquationTerms;
-        renderEquation(ds);
+        const activeDs = window.DATASETS_DATA[currentDatasetId];
+        if (activeDs) renderEquation(activeDs);
       });
     }
   }
@@ -1161,13 +1166,17 @@
 
     const isTruncated = row.features.length > 8 && !showAllCalcFeatures;
 
+    const toggleIcon = toggleBtn ? toggleBtn.querySelector('i') : null;
+
     if (isTruncated) {
       if (expandRow) expandRow.style.display = 'block';
       if (toggleText) toggleText.textContent = `Show all ${row.features.length} features (+${row.features.length - 8} more)`;
+      if (toggleIcon) toggleIcon.className = 'fa-solid fa-chevron-down';
     } else {
       if (row.features.length > 8) {
         if (expandRow) expandRow.style.display = 'block';
         if (toggleText) toggleText.textContent = 'Collapse to top 8 features';
+        if (toggleIcon) toggleIcon.className = 'fa-solid fa-chevron-up';
       } else {
         if (expandRow) expandRow.style.display = 'none';
       }
@@ -1223,15 +1232,20 @@
       toggleBtn._hasListener = true;
       toggleBtn.addEventListener('click', () => {
         showAllCalcFeatures = !showAllCalcFeatures;
-        renderLiveCalculator(ds);
+        const activeDs = window.DATASETS_DATA[currentDatasetId];
+        if (activeDs) renderLiveCalculator(activeDs);
       });
     }
 
     if (resetBtn && !resetBtn._hasListener) {
       resetBtn._hasListener = true;
       resetBtn.addEventListener('click', () => {
-        row.features.forEach((feat) => {
-          const stats = (ds.feature_stats && ds.feature_stats[feat]);
+        const activeDs = window.DATASETS_DATA[currentDatasetId];
+        if (!activeDs) return;
+        const activeRow = getActiveRowData(activeDs);
+        if (!activeRow || !activeRow.features) return;
+        activeRow.features.forEach((feat) => {
+          const stats = (activeDs.feature_stats && activeDs.feature_stats[feat]);
           if (!stats) return;
           const safeId = feat.replace(/[^a-zA-Z0-9]/g, '_');
           const numInput = document.getElementById(`calc_num_${safeId}`);
@@ -1241,7 +1255,7 @@
           if (rangeInput) rangeInput.value = stats.default;
           if (valLabel) valLabel.textContent = Number(stats.default).toFixed(2);
         });
-        calculatePrediction(ds, row);
+        calculatePrediction(activeDs, activeRow);
       });
     }
 
