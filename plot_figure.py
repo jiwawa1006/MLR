@@ -1,9 +1,17 @@
 # plot_figure.py
 
 import os
+import sys
 import glob
 import pandas as pd
 import matplotlib.pyplot as plt
+
+if hasattr(sys.stdout, "reconfigure"):
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")
+        sys.stderr.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
 
 from sklearn.model_selection import train_test_split
 
@@ -23,28 +31,35 @@ RANDOM_STATE = 42
 CV = 5
 
 MAX_FEATURES = None
+SKIP_EXISTING = True
 
 METHODS = ["variance_threshold", "mutual_information", "forward", "backward", "rfe", "lasso", "elastic_net"]
 
 TARGET_COLUMNS = {
+    "amse_housing": "SalePrice",
+    "automoblie": "price",
     "boston_housing": "MEDV",
     "cancer_deathrate": "TARGET_deathRate",
     "cover_type": "Cover_Type",
+    "e-commerce_customer_behavior": "Total Spend",
     "startups_50": "Profit",
     "student_performance": "G3",
-    "amse_housing": "SalePrice",
+    "wine_quality": "quality",
 }
 
 # Utility functions
 def clean_index_columns(df):
     """
-    Remove CSV index columns.
+    Remove CSV index and row ID columns.
     """
 
-    index_columns = [col for col in df.columns if col.lower().startswith("unnamed:")]
+    index_columns = [
+        col for col in df.columns 
+        if col.lower().startswith("unnamed:") or col.lower() in ["id", "customer id", "customer_id", "row_id", "index"]
+    ]
 
     if index_columns:
-        print("Removing CSV index columns:")
+        print("Removing CSV index/ID columns:")
 
         for col in index_columns:
             print(f" - {col}")
@@ -210,7 +225,17 @@ def print_best_result(results, method):
         print(f"Selected features for best R² model: {features}")
 
 # Run one method
-def run_method(method, X_train, X_test, y_train, y_test, output_dir):
+def run_method(method, X_train, X_test, y_train, y_test, output_dir, force=False):
+
+    csv_path = os.path.join(output_dir, f"{method}.csv")
+    rmse_path = os.path.join(output_dir, f"{method}.png")
+    r2_path = os.path.join(output_dir, f"{method}_r2.png")
+
+    if not force and SKIP_EXISTING and os.path.exists(csv_path) and os.path.exists(rmse_path) and os.path.exists(r2_path):
+        print(f"Skipping {method} (already computed in {output_dir}).")
+        results = pd.read_csv(csv_path)
+        print_best_result(results, method)
+        return results
 
     print("\n------------------------------------------------------------")
     print(f"Running {method}")
@@ -228,42 +253,151 @@ def run_method(method, X_train, X_test, y_train, y_test, output_dir):
     else:
         raise ValueError(f"Unknown method: {method}")
 
-    csv_path = os.path.join(output_dir, f"{method}.csv")
     results.to_csv(csv_path, index=False, encoding="utf-8-sig")
 
-    rmse_path = os.path.join(output_dir, f"{method}.png")
     plot_rmse(results, method, rmse_path)
-
-    r2_path = os.path.join(output_dir, f"{method}_r2.png")
     plot_r2(results, method, r2_path)
 
     print_best_result(results, method)
 
     return results
 
+def resolve_dataset_files(inputs):
+    """
+    Resolves input arguments (file paths, dataset names, or glob patterns)
+    to concrete CSV files in DATA_DIR or on disk.
+    """
+    target_order = list(TARGET_COLUMNS.keys())
+
+    if not inputs:
+        all_csvs = glob.glob(os.path.join(DATA_DIR, "*.csv"))
+        all_csvs.sort(
+            key=lambda f: target_order.index(os.path.splitext(os.path.basename(f))[0])
+            if os.path.splitext(os.path.basename(f))[0] in target_order else 999
+        )
+        return all_csvs
+
+    resolved = []
+    for item in inputs:
+        # Support glob patterns like "data/*.csv"
+        if any(c in item for c in ["*", "?", "["]):
+            matches = glob.glob(item)
+            if not matches and not os.path.isabs(item):
+                matches = glob.glob(os.path.join(DATA_DIR, item))
+            for m in matches:
+                if m.lower().endswith(".csv") and m not in resolved:
+                    resolved.append(m)
+            continue
+
+        # Check candidate file paths
+        candidates = [
+            item,
+            os.path.join(DATA_DIR, item),
+            os.path.join(DATA_DIR, f"{item}.csv"),
+            f"{item}.csv",
+        ]
+
+        found = None
+        for cand in candidates:
+            if os.path.isfile(cand) and cand.lower().endswith(".csv"):
+                found = os.path.abspath(cand)
+                break
+
+        # Case-insensitive dataset name matching inside DATA_DIR
+        if not found:
+            clean_name = os.path.splitext(os.path.basename(item))[0].lower()
+            for f in glob.glob(os.path.join(DATA_DIR, "*.csv")):
+                if os.path.splitext(os.path.basename(f))[0].lower() == clean_name:
+                    found = os.path.abspath(f)
+                    break
+
+        if found:
+            rel = os.path.relpath(found)
+            if rel not in resolved:
+                resolved.append(rel)
+        else:
+            print(f"Warning: Could not find dataset matching '{item}'.")
+
+    return resolved
+
 # Main
 def main():
+    import argparse
 
-    csv_files = glob.glob(os.path.join(DATA_DIR, "*.csv"))
+    parser = argparse.ArgumentParser(
+        description="Run Multiple Linear Regression feature selection experiments.",
+        usage="python plot_figure.py [dataset_paths ...] [options]"
+    )
+    parser.add_argument(
+        "datasets",
+        nargs="*",
+        help="One or more dataset CSV files or names (e.g. 'data/wine_quality.csv', 'wine_quality'). If omitted, runs all datasets in data/."
+    )
+    parser.add_argument(
+        "--dataset",
+        type=str,
+        default=None,
+        help="Optional flag for a single dataset name or path."
+    )
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        default=False,
+        help="Force recomputing experiments even if results already exist in fig/."
+    )
+    parser.add_argument(
+        "--skip-existing",
+        action="store_true",
+        default=False,
+        help="Skip experiments if output CSV and plots already exist in fig/."
+    )
+    parser.add_argument(
+        "--no-export",
+        action="store_true",
+        default=False,
+        help="Do not re-export web dashboard data (model_data.js) upon completion."
+    )
+    args = parser.parse_args()
+
+    input_targets = list(args.datasets)
+    if args.dataset:
+        input_targets.append(args.dataset)
+
+    csv_files = resolve_dataset_files(input_targets)
 
     if not csv_files:
-        print(f"No CSV files found in '{DATA_DIR}'.")
+        print("No valid CSV dataset files found to process.")
         return
 
-    print(f"Found {len(csv_files)} dataset(s).")
+    # If specific datasets were explicitly requested, recompute them by default unless --skip-existing is set
+    if args.force:
+        force_run = True
+    elif args.skip_existing:
+        force_run = False
+    elif input_targets:
+        force_run = True
+    else:
+        force_run = False
+
+    print(f"Found {len(csv_files)} dataset(s) to process (force_run={force_run}).")
 
     for csv_file in csv_files:
 
         dataset_name = os.path.splitext(os.path.basename(csv_file))[0]
 
         print("\n======================================================================")
-        print(f"Dataset: {dataset_name}")
+        print(f"Dataset: {dataset_name} ({csv_file})")
         print("======================================================================")
 
         df = pd.read_csv(csv_file)
         df = clean_index_columns(df)
         target = TARGET_COLUMNS.get(dataset_name) or detect_target(df)
         print(f"Target: {target}")
+
+        if df[target].isnull().any():
+            missing_count = int(df[target].isnull().sum())
+            print(f"Notice: Dropping {missing_count} row(s) with missing target '{target}'.")
+            df = df.dropna(subset=[target])
 
         X = df.drop(columns=[target])
         y = df[target]
@@ -292,18 +426,19 @@ def main():
         os.makedirs(output_dir, exist_ok=True)
 
         for method in METHODS:
-            run_method(method, X_train, X_test, y_train, y_test, output_dir)
+            run_method(method, X_train, X_test, y_train, y_test, output_dir, force=force_run)
 
     print("\n======================================================================")
-    print("All datasets completed.")
+    print("All specified datasets completed.")
     print("======================================================================")
 
-    try:
-        import export_web_data
-        print("\nExporting web dashboard data to model_data.js...")
-        export_web_data.main()
-    except Exception as e:
-        print(f"Notice: Could not auto-export web data: {e}")
+    if not args.no_export:
+        try:
+            import export_web_data
+            print("\nExporting web dashboard data to model_data.js...")
+            export_web_data.main()
+        except Exception as e:
+            print(f"Notice: Could not auto-export web data: {e}")
 
 
 if __name__ == "__main__":

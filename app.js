@@ -84,10 +84,25 @@
       currentDatasetId = datasetIds[0];
     }
 
-    // Sort dropdown so amse_housing is the very first option
+    // Exact ordered list matching user preference
+    const DATASET_ORDER = [
+      'amse_housing',
+      'automoblie',
+      'boston_housing',
+      'cancer_deathrate',
+      'cover_type',
+      'e-commerce_customer_behavior',
+      'startups_50',
+      'student_performance',
+      'wine_quality',
+    ];
+
     const sortedIds = [...datasetIds].sort((a, b) => {
-      if (a === 'amse_housing') return -1;
-      if (b === 'amse_housing') return 1;
+      const idxA = DATASET_ORDER.indexOf(a);
+      const idxB = DATASET_ORDER.indexOf(b);
+      if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+      if (idxA !== -1) return -1;
+      if (idxB !== -1) return 1;
       return a.localeCompare(b);
     });
 

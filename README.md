@@ -21,13 +21,16 @@ Supports interactive model diagnostics, parsimony analysis (Occam's razor), bias
 ## 🌟 Key Features
 
 1. **Dynamic Dataset Dropdown (下拉選單)**:
-   - Seamlessly switch between 6 diverse machine learning datasets:
-     - **50 Startups** (Commercial Profit Prediction)
-     - **Boston Housing** (Suburban Housing Valuation)
+   - Seamlessly switch between 9 diverse machine learning datasets:
      - **Ames Housing** (High-Dimensional Real Estate Valuation with 80+ Features)
+     - **Boston Housing** (Suburban Housing Valuation)
      - **US Cancer Mortality** (County-Level Health & Socioeconomic Analytics)
-     - **Student Performance** (Secondary Education Grade G3 Prediction)
      - **Forest Cover Type** (USGS Wilderness Cartographic Attributes)
+     - **E-Commerce Customer Behavior** (Customer Total Spend & Demographics)
+     - **Automobile Pricing** (Vehicle Specifications & Price Valuation)
+     - **50 Startups** (Commercial Profit Prediction)
+     - **Student Performance** (Secondary Education Grade G3 Prediction)
+     - **Wine Quality** (Physicochemical Sensory Quality Scoring)
    - Automatically adapts to any newly added datasets in `data/`.
 2. **7 Feature Selection Algorithms**:
    - **Filter Methods**: Variance Threshold, Mutual Information
@@ -70,14 +73,20 @@ MLR/
 │   ├── amse_housing.csv
 │   ├── cancer_deathrate.csv
 │   ├── cover_type.csv
-│   └── student_performance.csv
+│   ├── student_performance.csv
+│   ├── automoblie.csv
+│   ├── e-commerce_customer_behavior.csv
+│   └── wine_quality.csv
 ├── fig/                        # Saved 300 DPI publication plots and metric CSVs
 │   ├── startups_50/
-│   ├── boston_housing/
 │   ├── amse_housing/
+│   ├── boston_housing/
 │   ├── cancer_deathrate/
 │   ├── cover_type/
-│   └── student_performance/
+│   ├── student_performance/
+│   ├── automoblie/
+│   ├── e-commerce_customer_behavior/
+│   └── wine_quality/
 └── requirements.txt            # Python dependencies
 ```
 
@@ -91,9 +100,20 @@ MLR/
    ```
 
 2. **Run the experiments**:
-   ```bash
-   python plot_figure.py
-   ```
+   - **Run all datasets**:
+     ```bash
+     python plot_figure.py
+     ```
+   - **Run a single dataset**:
+     ```bash
+     python plot_figure.py data/wine_quality.csv
+     # or simply by name:
+     python plot_figure.py wine_quality
+     ```
+   - **Run multiple specific datasets**:
+     ```bash
+     python plot_figure.py data/automoblie.csv data/wine_quality.csv
+     ```
    *This automatically runs feature selection, generates plots in `fig/`, and updates `model_data.js`.*
 
 3. **Preview the web dashboard**:

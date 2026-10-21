@@ -6,8 +6,16 @@ Automatically supports new datasets added to `data/`.
 """
 
 import os
+import sys
 import glob
 import json
+
+if hasattr(sys.stdout, "reconfigure"):
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")
+        sys.stderr.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
 import numpy as np
 import pandas as pd
 from scipy import stats
@@ -26,39 +34,51 @@ CV = 5
 MAX_FEATURES = 5
 
 TARGET_COLUMNS = {
-    "startups_50": "Profit",
+    "amse_housing": "SalePrice",
+    "automoblie": "price",
     "boston_housing": "MEDV",
     "cancer_deathrate": "TARGET_deathRate",
-    "student_performance": "G3",
     "cover_type": "Cover_Type",
-    "amse_housing": "SalePrice",
+    "e-commerce_customer_behavior": "Total Spend",
+    "startups_50": "Profit",
+    "student_performance": "G3",
+    "wine_quality": "quality",
 }
 
 DATASET_DISPLAY_NAMES = {
     "amse_housing": "Ames Housing (Sale Price Evaluation)",
-    "startups_50": "50 Startups (Profit Prediction)",
+    "automoblie": "Automobile Pricing (Vehicle Valuation)",
     "boston_housing": "Boston Housing (Price Valuation)",
     "cancer_deathrate": "US Cancer Mortality (Death Rate)",
-    "student_performance": "Student Performance (Final Grade G3)",
     "cover_type": "Forest Cover Type (Cartographic Prediction)",
+    "e-commerce_customer_behavior": "E-Commerce Customer Behavior (Total Spend)",
+    "startups_50": "50 Startups (Profit Prediction)",
+    "student_performance": "Student Performance (Final Grade G3)",
+    "wine_quality": "Wine Quality (Red Wine Score)",
 }
 
 DATASET_DESCRIPTIONS = {
-    "startups_50": "Predict profit for 50 commercial startups based on R&D, Administration, Marketing Spend, and State location. Explores the 2-feature sweet spot vs overfitting.",
+    "amse_housing": "Predict residential home sale prices across Ames, Iowa using 80+ structural, quality, neighborhood, and remodel year predictors.",
+    "automoblie": "Predict automobile market prices based on technical specifications including engine dimensions, horsepower, curb weight, fuel system, and body styling.",
     "boston_housing": "Predict median home values (MEDV in $1000s) across 506 Boston suburbs using socio-economic and environmental predictors (RM, LSTAT, PTRATIO, etc.).",
     "cancer_deathrate": "Predict county-level cancer mortality rates (per 100,000 residents) using socio-economic, healthcare coverage, and clinical demographic variables.",
-    "student_performance": "Predict secondary student final grades (G3 scale 0-20) based on demographic, social, and academic history predictors.",
     "cover_type": "Predict forest cover classification (7 species categories) from USGS wilderness cartographic, elevation, hydrology, and soil attributes.",
-    "amse_housing": "Predict residential home sale prices across Ames, Iowa using 80+ structural, quality, neighborhood, and remodel year predictors.",
+    "e-commerce_customer_behavior": "Predict total customer expenditure in e-commerce based on demographic profile, purchase history, ratings, membership tier, and satisfaction.",
+    "startups_50": "Predict profit for 50 commercial startups based on R&D, Administration, Marketing Spend, and State location. Explores the 2-feature sweet spot vs overfitting.",
+    "student_performance": "Predict secondary student final grades (G3 scale 0-20) based on demographic, social, and academic history predictors.",
+    "wine_quality": "Predict red wine sensory quality scores (scale 0-10) using physicochemical properties such as acidity, residual sugar, sulfur dioxide, pH, and alcohol content.",
 }
 
 TARGET_UNITS = {
-    "startups_50": "$",
+    "amse_housing": "$",
+    "automoblie": "$",
     "boston_housing": "k$",
     "cancer_deathrate": "per 100k",
-    "student_performance": "pts",
     "cover_type": "Class",
-    "amse_housing": "$",
+    "e-commerce_customer_behavior": "$",
+    "startups_50": "$",
+    "student_performance": "pts",
+    "wine_quality": "score",
 }
 
 METHODS = [
@@ -93,7 +113,10 @@ METHOD_BADGES = {
 
 
 def clean_index_columns(df):
-    index_columns = [col for col in df.columns if col.lower().startswith("unnamed:")]
+    index_columns = [
+        col for col in df.columns 
+        if col.lower().startswith("unnamed:") or col.lower() in ["id", "customer id", "customer_id", "row_id", "index"]
+    ]
     if index_columns:
         df = df.drop(columns=index_columns)
     return df
@@ -247,6 +270,8 @@ def process_dataset(csv_path):
     df = clean_index_columns(df)
 
     target_col = TARGET_COLUMNS.get(dataset_id) or detect_target(df)
+    if df[target_col].isnull().any():
+        df = df.dropna(subset=[target_col])
     X = df.drop(columns=[target_col])
     y = df[target_col]
 
@@ -385,6 +410,13 @@ def main():
     if not csv_files:
         print(f"No CSV files found in {DATA_DIR}.")
         return
+
+    target_order = list(TARGET_COLUMNS.keys())
+    csv_files = sorted(
+        csv_files,
+        key=lambda f: target_order.index(os.path.splitext(os.path.basename(f))[0])
+        if os.path.splitext(os.path.basename(f))[0] in target_order else 999
+    )
 
     all_datasets = {}
 
